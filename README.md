@@ -159,9 +159,13 @@ ever clicks for you. Claude's work produces resources; your clicks turn them
 into sap; upgrades make your clicks better.
 
 - **Sap** is the one currency. Every click earns click power times the plant's
-  stage multiplier, times a meter factor (water, light, nutrients from reads,
-  writes, and shell commands), times the combo, times any open window, times
-  five to ten on a crit. Spending sap never affects the plant.
+  stage multiplier, times a meter factor (water, light, and nutrients), times
+  the combo, times any open window, times five to ten on a crit. Spending sap
+  never affects the plant.
+- **Meters** drain over fifteen to twenty minutes. Every tool call Claude makes
+  feeds all three a little, and the kind adds a bonus: reads and searches add
+  water, writes add light, shell commands add nutrients and a splash of water.
+  An ordinary hour of work keeps the plant healthy whatever the tool mix.
 - **Combo** builds with steady clicking and drains in eight seconds when you
   stop, multiplying clicks up to two times (3.5 with upgrades).
 - **Windows are the golden cookie.** When Claude writes a file a sunbeam lands
@@ -195,8 +199,10 @@ into sap; upgrades make your clicks better.
   as `logs/economy-2026-09-24-run1.jsonl` through `-run3.jsonl`.
 - **Shop.** Tools add flat click power and cost 15% more per level, doubling at
   levels 10, 25, and 50. Skill upgrades raise the combo cap, slow its drain, add
-  crit chance and size, and lengthen or brighten the windows. Garden items are
-  the barrel, compost bin, feeder, scarecrow, and greenhouse.
+  crit chance and size, lengthen or brighten the windows, and (the mouse
+  saver) repeat your click while you hold the button, from three a second up
+  to seven, a touch faster than a fast thumb. Garden items are the barrel,
+  compost bin, feeder, scarecrow, and greenhouse.
 - **Harvest.** The plant keeps growing past fruiting through wild, overgrown,
   glowing, enchanted, monstrous, ancient, and mythic, getting bigger and
   stranger. Harvest it by hand any time after fruiting for seeds, which scale

@@ -97,10 +97,11 @@ const ITEMS = [
   { id: 'brightbeam', cat: 'skill', name: 'Bright sunbeam', icon: '☀️', base: 500000, factor: 1, max: 1, desc: 'Clicks inside a sunbeam pay four times instead of three.' },
   { id: 'puddle', cat: 'skill', name: 'Deep puddle', icon: '💧', base: 250000, factor: 1, max: 1, desc: 'Clicks while it is raining on a planter pay double instead of 1.5 times.' },
   { id: 'birdseed', cat: 'skill', name: 'Birdseed', icon: '🌻', base: 150000, factor: 1, max: 1, desc: 'Catching a passing bird pays three times as much.' },
+  { id: 'hold', cat: 'skill', name: 'Mouse saver', icon: '🖱️', base: 60000, factor: 12, max: 4, desc: 'Hold the button down on a planter and it keeps clicking for you: 3 a second, then 4, 5, and 7, a touch faster than a fast thumb.' },
 
   { id: 'barrel', cat: 'garden', name: 'Rain barrel', icon: '🪣', base: 20000, factor: 1, max: 1, desc: 'Water meter holds 150 and drains a third slower.' },
   { id: 'compost', cat: 'garden', name: 'Compost bin', icon: '🪴', base: 40000, factor: 1, max: 1, desc: 'Shell commands give twice the nutrients.' },
-  { id: 'feeder', cat: 'garden', name: 'Bird feeder', icon: '🐦', base: 90000, factor: 1, max: 1, desc: 'Web, browser, and other tool calls give three water and light instead of one.' },
+  { id: 'feeder', cat: 'garden', name: 'Bird feeder', icon: '🐦', base: 90000, factor: 1, max: 1, desc: 'Every tool call feeds water, light, and nutrients twice as much.' },
   { id: 'scarecrow', cat: 'garden', name: 'Scarecrow', icon: '🌾', base: 150000, factor: 1, max: 1, desc: 'Crows from failed tools leave in 20 seconds instead of 60.' },
   { id: 'greenhouse', cat: 'garden', name: 'Greenhouse', icon: '🏡', base: 300000, factor: 1, max: 1, desc: 'Light drains a third slower and crows can no longer slow the trickle.' },
 ];
@@ -129,7 +130,9 @@ const sunbeamSeconds = () => 8 + 4 * lvl('longbeam');
 const sunbeamMult = () => (has('brightbeam') ? 4 : 3);
 const puddleMult = () => (has('puddle') ? 2 : 1.5);
 const birdMult = () => (has('birdseed') ? 3 : 1);
+const holdRate = () => [0, 3, 4, 5, 7][Math.min(4, lvl('hold'))];
 const waterCap = () => (has('barrel') ? 150 : 100);
+function feed(p, w, l, n) { p.water = Math.min(waterCap(), p.water + w); p.light = Math.min(100, p.light + l); p.nutrients = Math.min(100, (p.nutrients || 0) + n); }
 function meterFactor(p) { return 0.4 + 0.2 * Math.min(1, p.water / waterCap()) + 0.2 * p.light / 100 + 0.2 * p.nutrients / 100; }
 
 // ---------- tuning knobs (shown in Stats so numbers can be argued about) ----------
@@ -155,7 +158,7 @@ function minuteBucket() {
   let b = ledger.minutes[ledger.minutes.length - 1];
   if (!b || b.m !== m) {
     if (b && !b.sent) { b.sent = true; fetch('/econ', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(b) }).catch(() => {}); }
-    b = { m, clicks: 0, crits: 0 };
+    b = { m, clicks: 0, crits: 0, held: 0 };
     for (const s of SOURCES) b[s] = 0;
     ledger.minutes.push(b);
     if (ledger.minutes.length > 1440) ledger.minutes.splice(0, ledger.minutes.length - 1440);
@@ -173,7 +176,7 @@ function recordEvent(text, value) {
 }
 function sumSince(ms) {
   const from = Math.floor((Date.now() - ms) / 60000);
-  const out = { clicks: 0, crits: 0 };
+  const out = { clicks: 0, crits: 0, held: 0 };
   for (const s of SOURCES) out[s] = 0;
   for (const b of ledger.minutes) if (b.m >= from) { for (const k of Object.keys(out)) out[k] += b[k] || 0; }
   return out;
@@ -574,11 +577,13 @@ function ingest(ev, quiet) {
     const plant = sid ? plantFor(sid) : null;
     if (c.kind !== 'mote') weather[c.kind] = Math.min(1, weather[c.kind] + 0.35);
     if (plant) {
-      const minor = has('feeder') ? 3 : 1;
-      if (c.kind === 'rain') { plant.water = Math.min(waterCap(), plant.water + 5); if (!quiet) lastRain[sid] = Date.now(); }
-      else if (c.kind === 'sun') { plant.light = Math.min(100, plant.light + 7); if (!quiet) sunbeams[sid] = Date.now() + sunbeamSeconds() * 1000; }
-      else if (c.kind === 'wind') { plant.nutrients = Math.min(100, plant.nutrients + (has('compost') ? 12 : 6)); plant.water = Math.min(waterCap(), plant.water + 1); }
-      else { plant.water = Math.min(waterCap(), plant.water + minor); plant.light = Math.min(100, plant.light + minor); }
+      // Every tool call feeds all three meters a little, so the plant is not at the
+      // mercy of the tool mix (a whole day showed nine reads); the kind adds its bonus.
+      const base = has('feeder') ? 6 : 3;
+      feed(plant, base, base, base);
+      if (c.kind === 'rain') { feed(plant, 6, 0, 0); if (!quiet) lastRain[sid] = Date.now(); }
+      else if (c.kind === 'sun') { feed(plant, 0, 8, 0); if (!quiet) sunbeams[sid] = Date.now() + sunbeamSeconds() * 1000; }
+      else if (c.kind === 'wind') { feed(plant, 4, 0, has('compost') ? 16 : 8); }
       // Claude's own work feeds the plant a little, so it grows while you watch
       if (!quiet) { const r = rects[sid]; earn(sid, TUNING.burst * passivePower() * yieldMult(plant) * meterFactor(plant), r ? r.cx + 40 : null, r ? r.y - 60 : null, '☁ +', '', 'burst'); }
     }
@@ -944,6 +949,7 @@ function renderStats() {
   html += '<tr><th>earned</th><th>' + fmt(T[0]) + '</th><th></th><th>' + fmt(T[1]) + '</th><th>' + fmt(T[2]) + '</th></tr>';
   html += '<tr><td>spent in shop</td><td>' + fmt(ledger.spent) + '</td><td></td><td></td><td></td></tr>';
   html += '<tr><td>clicks / crits</td><td>' + garden.clicks + ' / ' + garden.crits + '</td><td></td><td>' + last60.clicks + ' / ' + last60.crits + '</td><td>' + last5.clicks + ' / ' + last5.crits + '</td></tr>';
+  if (garden.held) html += '<tr><td>of which held (mouse saver)</td><td>' + garden.held + '</td><td></td><td>' + last60.held + '</td><td>' + last5.held + '</td></tr>';
   $('stats-table').innerHTML = html;
 
   const fs = focused(); const p = fs && plants[fs.id];
@@ -1265,7 +1271,7 @@ function catchBird(i, x, y) {
   for (let k = 0; k < 6; k++) particles.push({ kind: 'spark', text: '', x: x + (Math.random() - 0.5) * 30, y, vx: (Math.random() - 0.5) * 120, vy: -40 - Math.random() * 80, age: 0, life: 0.8, size: 3 });
 }
 
-function click(sid, x, y) {
+function click(sid, x, y, held) {
   claimWriter();
   const plant = plantFor(sid);
   combo = Math.min(1, combo + TUNING.comboStep);
@@ -1274,12 +1280,13 @@ function click(sid, x, y) {
   const crit = Math.random() < critChance();
   const gain = clickPower() * yieldMult(plant) * meterFactor(plant) * cm * wm.m * (crit ? critMult() : 1);
   plant.clicks++; garden.clicks++; if (crit) garden.crits++;
-  const b = minuteBucket(); b.clicks++; if (crit) b.crits++;
+  const b = minuteBucket(); b.clicks++; if (crit) b.crits++; if (held) { b.held = (b.held || 0) + 1; garden.held = (garden.held || 0) + 1; }
   earn(sid, gain, x, y, crit ? 'CRIT +' : '+', crit ? 'crit' : (wm.m > 1 ? 'window' : ''), crit ? 'crit' : (wm.m > 1 ? 'window' : 'click'));
   const n = crit ? 10 : 4;
   for (let i = 0; i < n; i++) particles.push({ kind: 'spark', text: '', x: x + (Math.random() - 0.5) * 30, y, vx: (Math.random() - 0.5) * (crit ? 160 : 60), vy: -40 - Math.random() * (crit ? 120 : 60), age: 0, life: 0.8, size: crit ? 4 : 3 });
 }
 let lastClick = 0;
+let holding = null;   // the planter under a held button; the mouse saver repeats the click there
 canvas.addEventListener('pointerdown', (e) => {
   if (!e.isTrusted || e.button !== 0) return;
   if (hitMailbox(e.clientX, e.clientY)) { const idx = letters.map((x) => !readIds.has(x.id)).lastIndexOf(true); openLetter(idx >= 0 ? idx : letters.length - 1, false); return; }
@@ -1299,8 +1306,14 @@ canvas.addEventListener('pointerdown', (e) => {
   if (!stickyFocus || focusId !== sid) { stickyFocus = true; focusId = sid; }
   lastClick = now;
   click(sid, e.clientX, e.clientY);
+  holding = { sid, x: e.clientX, y: e.clientY, acc: 0 };
 });
-canvas.addEventListener('pointermove', (e) => { hover.x = e.clientX; hover.y = e.clientY; updateTip(); });
+const endHold = () => { holding = null; };
+window.addEventListener('pointerup', endHold);
+window.addEventListener('pointercancel', endHold);
+window.addEventListener('blur', endHold);
+canvas.addEventListener('pointerleave', endHold);
+canvas.addEventListener('pointermove', (e) => { hover.x = e.clientX; hover.y = e.clientY; if (holding) { holding.x = e.clientX; holding.y = e.clientY; } updateTip(); });
 canvas.addEventListener('pointerleave', () => { hover.x = -1; hover.y = -1; updateTip(); });
 
 function updateTip() {
@@ -1364,16 +1377,21 @@ function tick(dt) {
   tickAmbient(dt, performance.now() / 1000);
   dawnFlash = Math.max(0, dawnFlash - dt * 0.7);
   combo = Math.max(0, combo - dt / comboSeconds());
-  // meters drain over roughly ten minutes, so Claude's bursts of work keep up
-  const waterDrain = has('barrel') ? 0.09 : 0.14;
-  const lightDrain = has('greenhouse') ? 0.1 : 0.16;
+  // Mouse saver: a held button repeats the click at the tier's rate (the first one landed on pointerdown).
+  if (holding && holdRate() > 0 && plants[holding.sid]) {
+    holding.acc += dt * holdRate();
+    while (holding.acc >= 1) { holding.acc -= 1; click(holding.sid, holding.x + (Math.random() - 0.5) * 12, holding.y + (Math.random() - 0.5) * 12, true); }
+  }
+  // meters drain over fifteen to twenty minutes; an ordinary hour of Claude's work refills them
+  const waterDrain = has('barrel') ? 0.06 : 0.09;
+  const lightDrain = has('greenhouse') ? 0.075 : 0.11;
   const working = anyoneWorking();
   const power = passivePower();
   for (const [sid, p] of Object.entries(plants)) {
     const sp = speciesOf(p);
     p.water = Math.max(0, p.water - dt * waterDrain * sp.water);
     p.light = Math.max(0, p.light - dt * lightDrain * sp.light);
-    p.nutrients = Math.max(0, (p.nutrients || 0) - dt * 0.12);
+    p.nutrients = Math.max(0, (p.nutrients || 0) - dt * 0.09);
     // the plant grows while it is healthy; nothing else grows it
     p.grown = (p.grown || 0) + dt * 1000 * growthSpeed(p);
     // the trickle: Claude working keeps the plant alive at about a fifth of an active click rate
@@ -2665,7 +2683,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).style.display = 'none'; }
-window.__garden = { critters, particles, plants, garden, ambient, spawnAmbient, deskState, openDesk, sessions: () => sessions, holds: () => pendingHolds };   // debugging handle
+window.__garden = { critters, particles, plants, garden, ambient, spawnAmbient, deskState, openDesk, sessions: () => sessions, holds: () => pendingHolds, holding: () => holding, focused, holdRate, hold: (on) => { holding = on && focused() ? { sid: focused().id, x: W / 2, y: H * 0.7, acc: 0 } : null; } };   // debugging handle
 updateHud();
 requestAnimationFrame(frame);
 })();
