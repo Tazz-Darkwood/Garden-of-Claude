@@ -103,7 +103,7 @@ const ITEMS = [
   { id: 'compost', cat: 'garden', name: 'Compost bin', icon: '🪴', base: 40000, factor: 1, max: 1, desc: 'Shell commands give twice the nutrients.' },
   { id: 'feeder', cat: 'garden', name: 'Bird feeder', icon: '🐦', base: 90000, factor: 1, max: 1, desc: 'Every tool call feeds water, light, and nutrients twice as much.' },
   { id: 'scarecrow', cat: 'garden', name: 'Scarecrow', icon: '🌾', base: 150000, factor: 1, max: 1, desc: 'Crows from failed tools leave in 20 seconds instead of 60.' },
-  { id: 'greenhouse', cat: 'garden', name: 'Greenhouse', icon: '🏡', base: 300000, factor: 1, max: 1, desc: 'Light drains a third slower and crows can no longer slow the trickle.' },
+  { id: 'greenhouse', cat: 'garden', name: 'Greenhouse', icon: '🏡', base: 300000, factor: 1, max: 1, desc: 'A glass greenhouse at the back of the garden. Light drains a third slower and crows can no longer slow the trickle.' },
 ];
 const ITEM = Object.fromEntries(ITEMS.map((u) => [u.id, u]));
 const lvl = (id) => garden.levels[id] || 0;
@@ -2494,6 +2494,47 @@ function drawPests(t) {
   }
 }
 
+// A glass greenhouse at the back of the garden (the greenhouse upgrade). It is a
+// background prop, so planters and props stand in front of it; lamps glow inside after dark.
+function drawGreenhouse(t) {
+  if (!has('greenhouse')) return;
+  const dl = daylight();
+  const w = Math.max(96, Math.min(150, W * 0.11)), h = w * 0.62;
+  const x = W * 0.27 - w / 2, y = soilY - 4;
+  const ridge = y - h, eave = y - h * 0.55;
+  const warm = Math.max(0, 1 - dl * 1.15);
+  shadow(x + w / 2, y + 3, w * 1.05, 5, 0.15);
+  const outline = () => { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, eave); ctx.lineTo(x + w / 2, ridge); ctx.lineTo(x + w, eave); ctx.lineTo(x + w, y); ctx.closePath(); };
+  // glass, tinted by the hills behind it
+  outline(); ctx.fillStyle = 'rgba(205,240,255,' + (0.26 + 0.08 * dl).toFixed(2) + ')'; ctx.fill();
+  if (warm > 0.02) { outline(); const g = ctx.createLinearGradient(0, ridge, 0, y); g.addColorStop(0, 'rgba(255,200,110,0)'); g.addColorStop(1, 'rgba(255,200,110,' + (0.5 * warm).toFixed(2) + ')'); ctx.fillStyle = g; ctx.fill(); }
+  // benches and the plants on them
+  ctx.fillStyle = col([120, 95, 65], Math.max(dl, 0.45), 0.9); ctx.fillRect(x + 6, y - 9, w * 0.36, 2); ctx.fillRect(x + w * 0.58, y - 9, w * 0.36, 2);
+  for (let i = 0; i < 6; i++) {
+    if (i === 3) continue;   // the door
+    const px = x + w * (0.1 + i * 0.16), r = 4 + (i % 3) * 1.5 + Math.sin(t * 0.8 + i) * 0.5;
+    ctx.fillStyle = col(i % 2 ? [70, 140, 80] : [96, 160, 90], Math.max(dl, 0.5), 0.85);
+    ctx.fillRect(px - 1, y - 16 - r, 2, r + 8);
+    ctx.beginPath(); ctx.arc(px, y - 16 - r, r, 0, Math.PI * 2); ctx.fill();
+    if (i % 2) { ctx.fillStyle = col([240, 120, 150], Math.max(dl, 0.5)); ctx.beginPath(); ctx.arc(px + r * 0.4, y - 17 - r * 1.3, 1.6, 0, Math.PI * 2); ctx.fill(); }
+  }
+  // frame and panes
+  const frame = 'rgba(240,252,255,' + (0.5 + 0.35 * dl).toFixed(2) + ')';
+  ctx.strokeStyle = frame; ctx.lineJoin = 'round'; ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(x, eave); ctx.lineTo(x + w, eave);
+  ctx.moveTo(x, (eave + y) / 2); ctx.lineTo(x + w, (eave + y) / 2);
+  for (let i = 1; i < 6; i++) { const px = x + w * i / 6; ctx.moveTo(px, eave); ctx.lineTo(px, y); }
+  for (let i = 1; i < 3; i++) { const f = i / 3; ctx.moveTo(x + w / 2 * f, eave + (ridge - eave) * f); ctx.lineTo(x + w / 2 * f, eave); ctx.moveTo(x + w - w / 2 * f, eave + (ridge - eave) * f); ctx.lineTo(x + w - w / 2 * f, eave); }
+  ctx.stroke();
+  ctx.lineWidth = 1.6; outline(); ctx.stroke();
+  // door and finial
+  ctx.lineWidth = 1.2; ctx.strokeRect(x + w / 2 - w * 0.08, y - (y - eave) * 0.85, w * 0.16, (y - eave) * 0.85);
+  ctx.fillStyle = frame; ctx.beginPath(); ctx.arc(x + w / 2, ridge - 3, 1.8, 0, Math.PI * 2); ctx.fill(); ctx.fillRect(x + w / 2 - 0.6, ridge - 3, 1.2, 3);
+  // a sun glint on the roof by day
+  if (dl > 0.4) { ctx.fillStyle = 'rgba(255,255,255,' + (0.22 * dl).toFixed(2) + ')'; ctx.beginPath(); ctx.moveTo(x + w * 0.12, eave - 2); ctx.lineTo(x + w * 0.3, eave - (eave - ridge) * 0.6); ctx.lineTo(x + w * 0.36, eave - (eave - ridge) * 0.6); ctx.lineTo(x + w * 0.2, eave - 2); ctx.closePath(); ctx.fill(); }
+}
+
 function drawUpgrades(t) {
   const dl = daylight();
   if (has('barrel')) {
@@ -2530,14 +2571,6 @@ function drawUpgrades(t) {
     ctx.fillStyle = '#c94a3a'; ctx.beginPath(); ctx.moveTo(x - 10, y - 6); ctx.lineTo(x + 10, y - 6); ctx.lineTo(x, y - 14); ctx.closePath(); ctx.fill();
     ctx.fillStyle = col([217, 179, 112], dl); ctx.fillRect(x - 7, y - 6, 14, 10);
     ctx.fillStyle = col([170, 130, 70], dl); ctx.fillRect(x - 7, y - 6, 3, 10);
-  }
-  if (has('greenhouse')) {
-    for (const r of Object.values(rects)) {
-      const hgt = H * 0.42 * Math.max(0.5, r.scale);
-      ctx.fillStyle = 'rgba(200,235,255,0.14)'; ctx.strokeStyle = 'rgba(220,245,255,0.5)'; ctx.lineWidth = 1.5;
-      ctx.beginPath(); ctx.moveTo(r.x - 8, r.y); ctx.lineTo(r.x - 8, r.y - hgt * 0.6); ctx.quadraticCurveTo(r.cx, r.y - hgt * 1.25, r.x + r.w + 8, r.y - hgt * 0.6); ctx.lineTo(r.x + r.w + 8, r.y); ctx.closePath(); ctx.fill(); ctx.stroke();
-      ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(r.cx, r.y); ctx.lineTo(r.cx, r.y - hgt * 1.1); ctx.stroke();
-    }
   }
 }
 
@@ -2647,6 +2680,7 @@ function draw(t) {
   drawSky(t);
   drawAmbient('back', t);
   drawGround(t);
+  drawGreenhouse(t);
   drawWindows(t);
   drawParticles('back');
   drawGate(t);
