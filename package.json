@@ -1,0 +1,22 @@
+{
+  "name": "garden-of-claude",
+  "version": "0.1.0",
+  "description": "A clicker game that's secretly a Claude Code interface: watch, reply, and pause without opening the app.",
+  "license": "MIT",
+  "main": "server/server.js",
+  "scripts": {
+    "start": "node server/server.js",
+    "install-hooks": "node install.js",
+    "remove-hooks": "node install.js --remove"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": [
+    "claude",
+    "claude-code",
+    "hooks",
+    "idle-game",
+    "clicker"
+  ]
+}

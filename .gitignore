@@ -1,0 +1,7 @@
+# Personal data written at runtime: hook event history, letters, the shared save, economy ledgers
+logs/
+
+node_modules/
+.DS_Store
+Thumbs.db
+*.log

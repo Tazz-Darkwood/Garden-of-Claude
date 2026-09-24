@@ -1,0 +1,117 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Garden of Claude</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<canvas id="sky"></canvas>
+
+<div id="hud">
+  <div id="topbar">
+    <div id="status" class="pill offline">connecting...</div>
+    <div id="sessions"></div>
+  </div>
+  <div id="activity">waiting for Claude...</div>
+</div>
+
+<div id="panel">
+  <div id="sap-row"><span id="sap">0</span><span id="sap-unit">sap</span><span id="power" title="What one click earns right now"></span></div>
+  <div class="meter" title="Keep clicking to build the combo; it drains when you stop"><span class="label" id="combo-label">combo</span><div class="bar"><div id="combo" class="fill combo"></div></div></div>
+  <div class="meter"><span class="label">water</span><div class="bar"><div id="water" class="fill water"></div></div></div>
+  <div class="meter"><span class="label">light</span><div class="bar"><div id="light" class="fill light"></div></div></div>
+  <div class="meter"><span class="label">nutrients</span><div class="bar"><div id="nutrients" class="fill nutrients"></div></div></div>
+  <div class="meter"><span class="label" id="stage">seed</span><div class="bar"><div id="growth" class="fill growth"></div></div></div>
+  <div class="meter" id="context-row" title="How full Claude's context is; the sun sets as it fills and compaction is night"><span class="label" id="context-label">context</span><div class="bar"><div id="context" class="fill ctx"></div></div></div>
+  <div id="seeds">no seeds yet</div>
+  <div id="buttons">
+    <button id="pause" title="Refuse Claude's next tool call until you resume">Pause Claude</button>
+    <button id="sound" title="Chime when Claude needs you">Sound: off</button>
+    <button id="shop-open" title="Spend sap on upgrades">Shop</button>
+    <button id="journal-open" title="Everything Claude said and did this session, in order">Journal</button>
+    <button id="stats-open" title="Where the sap and seeds come from, minute by minute">Stats</button>
+    <button id="harvest" title="Harvest a fruiting plant for seeds, which raise your click power for good; you get a new random plant">Harvest</button>
+  </div>
+</div>
+
+<div id="desk" class="hidden">
+  <div id="desk-card">
+    <div id="desk-head"><div id="desk-title">Writing desk</div><div id="desk-meta"></div><button id="desk-close" title="Close">&#215;</button></div>
+    <div id="desk-body">
+      <select id="desk-session" class="hidden"></select>
+      <textarea id="desk-text" rows="4" placeholder="Write to Claude (Ctrl+Enter to send)"></textarea>
+      <div id="desk-note"></div>
+      <div id="desk-buttons"><button id="desk-send">Send</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="stats" class="hidden">
+  <div id="stats-card">
+    <div id="stats-head"><div id="stats-title">Economy</div><div id="stats-meta"></div><button id="stats-close" title="Close">&#215;</button></div>
+    <div id="stats-body">
+      <div id="stats-rates"></div>
+      <canvas id="stats-chart" width="600" height="150"></canvas>
+      <div id="stats-legend"></div>
+      <table id="stats-table"></table>
+      <div id="stats-formula"></div>
+      <div id="stats-events"></div>
+    </div>
+  </div>
+</div>
+
+<div id="journal" class="hidden">
+  <div id="journal-card">
+    <div id="journal-head"><div id="journal-title">Journal</div><div id="journal-meta"></div><button id="journal-close" title="Close">&#215;</button></div>
+    <div id="journal-list"></div>
+  </div>
+</div>
+
+<div id="shop" class="hidden">
+  <div id="shop-card">
+    <div id="shop-head"><div id="shop-title">Garden shop</div><div id="shop-seeds"></div><button id="shop-close" title="Close">&#215;</button></div>
+    <div id="shop-tabs"><button data-cat="tool" class="on">Tools</button><button data-cat="skill">Skill</button><button data-cat="garden">Garden</button></div>
+    <div id="shop-list"></div>
+    <div id="shop-foot">Tools add flat click power and cost 15% more each level, doubling at 25, 50, and 100. Skill upgrades sharpen combos, crits, and the windows Claude's work opens. Nothing here clicks for you.</div>
+  </div>
+</div>
+
+<div id="board"><div id="board-head"><span id="board-title">Claude</span><span id="board-meta"></span></div><div id="board-list"></div><div id="board-log"></div></div>
+<div id="tip" class="hidden"></div>
+
+<div id="attention" class="hidden">
+  <div id="attention-title">Claude needs you</div>
+  <div id="attention-note"></div>
+</div>
+
+<div id="letter" class="hidden">
+  <div id="letter-card">
+    <div id="letter-head">
+      <div id="letter-title">Letter from Claude</div>
+      <div id="letter-meta"></div>
+      <div id="letter-nav"><button id="letter-prev" title="Older letter">&#8249;</button><span id="letter-index"></span><button id="letter-next" title="Newer letter">&#8250;</button><button id="letter-size" title="Expand or shrink">&#8599;</button><button id="letter-close" title="Close">&#215;</button></div>
+    </div>
+    <div id="letter-body">
+      <div id="letter-prompt"></div>
+      <details id="letter-earlier"><summary>Earlier in this turn</summary><div id="letter-earlier-body"></div></details>
+      <div id="letter-final"></div>
+    </div>
+    <div id="letter-reply">
+      <div id="letter-hold"></div>
+      <textarea id="reply-text" rows="3" placeholder="Reply to Claude here (Ctrl+Enter to send)"></textarea>
+      <div id="reply-buttons">
+        <button id="reply-send">Send reply</button>
+        <button id="reply-release" class="hidden" title="End Claude's turn now without replying">Let Claude finish</button>
+        <span class="spacer"></span>
+        <button id="letter-remove" class="quiet" title="Remove this letter">Remove</button>
+        <button id="letter-clear" class="quiet" title="Remove every letter that is not waiting for a reply">Clear all</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script src="game.js"></script>
+</body>
+</html>
