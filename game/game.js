@@ -2454,7 +2454,7 @@ function drawPlant(r, sid, t, plant, wilt) {
 function drawMailbox(t) {
   const { x, y, w, h, postH } = mailbox;
   const dl = daylight();
-  const flagUp = unread > 0 || Object.keys(pendingHolds).length > 0;
+  const flagUp = unread > 0;   // the desk lamp shows an open hold; the mailbox only cares about letters
   shadow(x + w / 2, y + postH + 2, w * 1.3, 4, 0.2);
   ctx.fillStyle = col([107, 74, 46], dl); ctx.fillRect(x + w / 2 - 3, y, 6, postH);
   ctx.fillStyle = col([130, 92, 58], dl); ctx.fillRect(x + w / 2 - 3, y, 2, postH);
