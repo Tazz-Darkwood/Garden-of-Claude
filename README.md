@@ -212,9 +212,11 @@ into sap; upgrades make your clicks better.
 ## Mailbox and replying from the game
 
 When Claude finishes a turn, the server reads Claude's closing message out of
-the session transcript and posts it as a letter. The mailbox flag goes up and a
-banner offers to open it. The letter shows what you asked, anything Claude said
-earlier in the turn, and the closing message rendered as markdown.
+the session transcript. If it asks you something it becomes a letter: the
+mailbox flag goes up and a banner offers to open it. The letter shows what you
+asked, anything Claude said earlier in the turn, and the closing message
+rendered as markdown. A plain closing message is not a letter: it appears on
+the board, the log notes that the desk is open, and nothing says "your turn".
 
 While the game page is open, the server holds Claude's `Stop` hook until you
 reply, press "Let Claude finish", or type in the app (the server watches the

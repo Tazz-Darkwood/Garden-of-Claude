@@ -702,7 +702,6 @@ function computeMode() {
 function onModeChange(m) {
   if (m === 'needs_you') chime(880, 1320);
   else if (m === 'stalled') { chime(520, 390); pushTicker('Claude has gone quiet mid-task: check the app for a usage limit or a dialog', 'alert'); }
-  document.title = m === 'needs_you' ? '⚠ Claude needs you' : m === 'your_turn' ? '✦ Your turn · Garden of Claude' : '🌱 Garden of Claude';
   updateHud();
 }
 
@@ -733,6 +732,7 @@ function updateHud() {
   const focHeld = focused() && pendingHolds[focused().id];
   status.className = 'pill ' + (connected ? (mode === 'your_turn' && focHeld ? 'your_turn' : mode) : 'offline');
   status.textContent = connected ? (mode === 'your_turn' && focHeld ? 'Claude is idle · desk is open' : MODE_LABEL[mode]) : 'server offline';
+  document.title = mode === 'needs_you' ? '⚠ Claude needs you' : unread ? '✉ Claude asked you something' : mode === 'stalled' ? '⚠ Claude went quiet' : '🌱 Garden of Claude';
   $('board').style.bottom = ($('panel').offsetHeight + 20) + 'px';
   if (focused() && focused().id !== boardSid) renderBoard();
 
@@ -1036,20 +1036,22 @@ function isLetterOpen() { return !$('letter').classList.contains('hidden'); }
 
 function upsertLetter(l, quiet) {
   const idx = letters.findIndex((x) => x.id === l.id);
+  if (!l.needsAnswer) {
+    // Plain news is already on the board and the desk is open for a reply, so it is
+    // never a letter: no mailbox entry, no "waiting for you", just a line in the log.
+    if (idx < 0 && !quiet && !l.replied && !l.released) pushTicker(base(l.cwd) + ' · Claude finished its turn · the desk is open', '');
+    markRead(l.id);
+    return;
+  }
   if (idx >= 0) { letters[idx] = l; if (letterIdx === idx) renderLetter(); return; }
   letters.push(l);
   if (letters.length > 40) { letters.shift(); if (letterIdx > 0) letterIdx--; }
   if (!quiet) {
-    pushTicker(base(l.cwd) + ' · letter from Claude' + (l.needsAnswer ? ' (needs an answer)' : ''), 'you');
-    if (l.needsAnswer) {
-      // a question: flag up, banner, chime, and you open it yourself
-      unread++;
-      chime(660, 880);
-      if (isLetterOpen() && letterIdx === letters.length - 2) openLetter(letters.length - 1, isToast());
-    } else {
-      // just news: it is already on the board, so no letter to open
-      markRead(l.id);
-    }
+    pushTicker(base(l.cwd) + ' · letter from Claude: it needs an answer', 'you');
+    // a question: flag up, banner, chime, and you open it yourself
+    unread++;
+    chime(660, 880);
+    if (isLetterOpen() && letterIdx === letters.length - 2) openLetter(letters.length - 1, isToast());
   } else if (needsAttention(l)) {
     unread++;
   } else {
@@ -1059,7 +1061,7 @@ function upsertLetter(l, quiet) {
 function isToast() { return $('letter').classList.contains('toast'); }
 function replaceLetters(list) {
   const openId = letters[letterIdx] && letters[letterIdx].id;
-  letters.length = 0; list.forEach((l) => letters.push(l));
+  letters.length = 0; list.filter((l) => l.needsAnswer).forEach((l) => letters.push(l));
   unread = letters.filter(needsAttention).length;
   if (!letters.length) { letterIdx = -1; closeLetter(); return; }
   const idx = letters.findIndex((l) => l.id === openId);
@@ -2717,7 +2719,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).style.display = 'none'; }
-window.__garden = { critters, particles, plants, garden, ambient, spawnAmbient, deskState, openDesk, sessions: () => sessions, holds: () => pendingHolds, holding: () => holding, focused, holdRate, hold: (on) => { holding = on && focused() ? { sid: focused().id, x: W / 2, y: H * 0.7, acc: 0 } : null; } };   // debugging handle
+window.__garden = { critters, particles, plants, garden, ambient, spawnAmbient, deskState, openDesk, sessions: () => sessions, holds: () => pendingHolds, holding: () => holding, letters: () => letters, focused, holdRate, hold: (on) => { holding = on && focused() ? { sid: focused().id, x: W / 2, y: H * 0.7, acc: 0 } : null; } };   // debugging handle
 updateHud();
 requestAnimationFrame(frame);
 })();
