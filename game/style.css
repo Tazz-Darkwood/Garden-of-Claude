@@ -18,6 +18,8 @@ html, body { margin: 0; height: 100%; overflow: hidden; background: #0b1020; col
 .pill.your_turn { border-left: 4px solid var(--light); }
 .pill.needs_you { border-left: 4px solid var(--alert); animation: pulse 1s infinite alternate; }
 .pill.idle, .pill.offline { border-left: 4px solid #778; opacity: 0.85; }
+.pill.stalled { border-left: 4px solid var(--alert); }
+.pill.session.limit .dot { background: #c7b3ff; }
 .pill.session { font-weight: 500; font-size: 12px; }
 .pill.session .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; background: #778; }
 .pill.session.working .dot { background: var(--growth); }

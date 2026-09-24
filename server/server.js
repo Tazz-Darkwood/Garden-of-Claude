@@ -482,7 +482,9 @@ function touchSession(ev) {
     case 'Notification': {
       const t = ev.notification_type || '';
       const msg = ev.message || '';
-      if (ATTENTION_TYPES.has(t) || /permission/i.test(msg)) { s.status = 'needs_you'; s.note = msg || 'Claude needs permission'; }
+      if (t === 'quota_auto_resume_fired') { s.status = 'working'; s.note = ''; }
+      else if (t.startsWith('quota_auto_resume') || /usage limit|rate limit/i.test(msg)) { s.status = 'limit'; s.note = msg || 'Waiting for the usage limit to reset'; }
+      else if (ATTENTION_TYPES.has(t) || /permission/i.test(msg)) { s.status = 'needs_you'; s.note = msg || 'Claude needs permission'; }
       else if (TURN_OVER_TYPES.has(t) || /waiting for your input/i.test(msg)) { s.status = 'your_turn'; s.note = msg; }
       break;
     }

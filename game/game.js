@@ -677,17 +677,23 @@ function harvest(sid, who, auto) {
 }
 
 // ---------- mode / attention ----------
+// A session that was working but has sent nothing for this long, with no Stop,
+// is probably stopped by a usage limit or a dialog in the app.
+const QUIET_MS = 3 * 60 * 1000;
+function isStalled(s) { return s.status === 'working' && Date.now() - (s.lastSeen || 0) > QUIET_MS && !(s.pendingTool && s.pendingTool.since && /^(Agent|Task|Workflow)$/.test(s.pendingTool.name)); }
 function computeMode() {
   const now = Date.now();
   const live = liveSessions();
   let m = 'idle';
   if (live.some((s) => s.status === 'needs_you')) m = 'needs_you';
+  else if (live.some((s) => s.status === 'limit' || isStalled(s))) m = 'stalled';
   else if (live.some((s) => s.status === 'working' && now - s.lastSeen < 10 * 60 * 1000)) m = 'working';
   else if (live.some((s) => s.status === 'your_turn')) m = 'your_turn';
   if (m !== mode) { mode = m; onModeChange(m); }
 }
 function onModeChange(m) {
   if (m === 'needs_you') chime(880, 1320);
+  else if (m === 'stalled') { chime(520, 390); pushTicker('Claude has gone quiet mid-task: check the app for a usage limit or a dialog', 'alert'); }
   document.title = m === 'needs_you' ? '⚠ Claude needs you' : m === 'your_turn' ? '✦ Your turn · Garden of Claude' : '🌱 Garden of Claude';
   updateHud();
 }
@@ -711,7 +717,7 @@ function chime(f1, f2) {
 }
 
 // ---------- HUD ----------
-const MODE_LABEL = { working: 'Claude is working', needs_you: 'Claude needs you', your_turn: 'Claude is idle', idle: 'quiet' };
+const MODE_LABEL = { working: 'Claude is working', needs_you: 'Claude needs you', your_turn: 'Claude is idle', idle: 'quiet', stalled: 'Claude went quiet: check the app' };
 let lastPillSig = '';
 let shopSig = '';
 function updateHud() {
@@ -800,6 +806,12 @@ function updateHud() {
     $('attention-title').textContent = 'Claude needs you';
     const s = liveSessions().find((x) => x.status === mode);
     $('attention-note').textContent = s ? sessionLabel(s) + (s.note ? ' · ' + s.note : '') : '';
+  } else if (connected && mode === 'stalled') {
+    att.className = 'calm'; att.style.pointerEvents = 'none';
+    const s = liveSessions().find((x) => x.status === 'limit') || liveSessions().find(isStalled);
+    const limit = s && s.status === 'limit';
+    $('attention-title').textContent = limit ? 'Waiting for the usage limit to reset' : 'Claude has gone quiet';
+    $('attention-note').textContent = s ? sessionLabel(s) + ' · ' + (limit ? (s.note || 'it will continue on its own') : 'no word for ' + Math.round((Date.now() - s.lastSeen) / 60000) + ' min and no turn ended. A usage limit or a dialog in the app may be holding it.') : '';
   } else if (connected && unread > 0 && !(isLetterOpen() && !isToast())) {
     att.className = 'calm'; att.style.pointerEvents = 'auto'; att.style.cursor = 'pointer';
     const l = [...letters].reverse().find((x) => !readIds.has(x.id)) || letters[letters.length - 1];
