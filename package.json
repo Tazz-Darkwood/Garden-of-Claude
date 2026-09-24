@@ -6,6 +6,7 @@
   "main": "server/server.js",
   "scripts": {
     "start": "node server/server.js",
+    "setup": "node install.js",
     "install-hooks": "node install.js",
     "remove-hooks": "node install.js --remove"
   },

@@ -18,6 +18,7 @@ session transcript, and it runs on whatever plan you already have.
 | Path | What it is |
 |---|---|
 | `install.js` | adds or removes the hooks in `~/.claude/settings.json` |
+| `hooks/relay.js` | what the hooks run: forwards each event to the server, returns its answer, starts the server on session start |
 | `server/server.js` | the local server: receives hook events, streams them to the page, holds turns for replies, keeps the shared save (Node, no dependencies) |
 | `game/` | the page: `index.html`, `game.js`, `style.css` |
 | `.claude/launch.json` | lets the Claude desktop app start the server and open the page in its browser pane |
@@ -25,11 +26,13 @@ session transcript, and it runs on whatever plan you already have.
 
 ## How it works
 
-1. **Hooks** in `~/.claude/settings.json` POST every Claude Code lifecycle event to
-   a local server. Each hook is a `curl` call capped at three seconds that exits
-   cleanly even when the server is not running, so Claude never notices when the
-   game is off. `PreToolUse` waits for a reply (the pause gate) and `Stop` waits
-   for one (the mailbox and desk); every other event runs async.
+1. **Hooks** in `~/.claude/settings.json` hand every Claude Code lifecycle event
+   to `hooks/relay.js`, which posts it to a local server and prints the server's
+   answer. The relay always exits cleanly, even when the server is not running,
+   so Claude never notices when the game is off; on `SessionStart` it starts the
+   server if nothing is listening. `PreToolUse` waits for a reply (the pause
+   gate) and `Stop` waits for one (the mailbox and desk); every other event runs
+   async.
 2. **Server** (`server/server.js`, Node, no dependencies) receives the events on
    `POST /hook`, streams them to the page over Server-Sent Events, tracks each
    session's status, appends them to `logs/events-YYYY-MM-DD.jsonl`, and holds
@@ -38,14 +41,56 @@ session transcript, and it runs on whatever plan you already have.
 
 ## Running it
 
+### The easy way: let Claude install it
+
+If you use the Claude desktop app and never touch a terminal, paste this into
+a Claude Code session and let it do the work:
+
+> Install Garden of Claude from https://github.com/Tazz-Darkwood/Garden-of-Claude
+> and open it in the browser pane. Follow the "For Claude" checklist in its
+> README.
+
+After that the garden starts itself whenever you open a Claude session. To see
+it again later, just ask: "open the garden".
+
+<details>
+<summary><b>For Claude: the install checklist</b></summary>
+
+1. Check for `git` and `node` (`git --version`, `node --version`). If either is
+   missing, install it: on Windows `winget install --id Git.Git -e` and
+   `winget install --id OpenJS.NodeJS.LTS -e`; on macOS `brew install git node`;
+   on Linux use the distribution's packages. Open a fresh shell afterwards so
+   the new commands are on the path.
+2. Clone the repo into the user's home folder:
+   `git clone https://github.com/Tazz-Darkwood/Garden-of-Claude "~/Garden-of-Claude"`.
+3. In that folder run `node install.js`. This adds hooks to
+   `~/.claude/settings.json`; they take effect without a restart.
+4. Start the server once now: run `node server/server.js` from that folder in
+   the background. From then on it starts itself with each new session.
+5. Open <http://127.0.0.1:47831> in the browser pane (a URL preview) so it
+   sits beside the chat, and tell the user the flag on the mailbox means a
+   letter and the desk lamp means Claude is ready for a note.
+6. Nothing else is needed. The hooks never touch the user's data, and the
+   folder can be deleted after `node install.js --remove` to uninstall.
+
+</details>
+
+### By hand
+
 ```bash
+git clone https://github.com/Tazz-Darkwood/Garden-of-Claude
+cd Garden-of-Claude
 node install.js          # adds the hooks to ~/.claude/settings.json (once)
-node server/server.js    # starts the garden
+node server/server.js    # starts the garden now; later sessions start it themselves
 ```
 
 Then open <http://127.0.0.1:47831> in any browser. In the Claude desktop app,
 ask Claude to open the `garden` preview and it appears in the browser pane
 beside the chat. `node install.js --remove` takes the hooks out again.
+
+Requirements: Node 18 or newer, and Claude Code in any of its forms. The
+hooks run a small Node script directly, with no shell, so they behave the same
+on Windows, macOS, and Linux.
 
 ## Where it works
 
@@ -53,10 +98,9 @@ Anything that is Claude Code underneath: the terminal CLI on Windows, macOS,
 or Linux, the VS Code and JetBrains extensions, and the desktop app. They all
 read the same `~/.claude/settings.json` hooks, write the same transcript
 files, and honor the same Stop-hook reply, so the mailbox, desk, pause gate,
-and journal all work the same. The hook commands need only `curl` and a shell
-(bash on macOS and Linux, Git Bash on Windows; the installer's commands are
-plain enough for either). While a turn is held the host shows Claude as
-still running, whatever the host is.
+and journal all work the same. The hooks run Node directly, so they need no
+shell and no other tools. While a turn is held the host shows Claude as still
+running, whatever the host is.
 
 An app built on the Claude Agent SDK also works when it loads user settings
 (the default `settingSources`), since the same hooks fire there; its own UI
