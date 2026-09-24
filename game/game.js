@@ -301,7 +301,21 @@ async function sendDesk() {
 $('desk-close').addEventListener('click', closeDesk);
 $('desk').addEventListener('click', (e) => { if (e.target === $('desk')) closeDesk(); });
 $('desk-send').addEventListener('click', sendDesk);
-$('desk-text').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendDesk(); } });
+// Enter sends; Shift+Enter or Ctrl+Enter inserts a new line.
+function sendOnEnter(textarea, send) {
+  textarea.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || e.isComposing) return;
+    if (e.shiftKey || e.ctrlKey || e.metaKey || e.altKey) {
+      e.preventDefault();
+      const s = textarea.selectionStart, en = textarea.selectionEnd;
+      textarea.value = textarea.value.slice(0, s) + '\n' + textarea.value.slice(en);
+      textarea.selectionStart = textarea.selectionEnd = s + 1;
+      return;
+    }
+    e.preventDefault(); send();
+  });
+}
+sendOnEnter($('desk-text'), sendDesk);
 
 function drawDesk(t) {
   const st = deskState();
@@ -1129,7 +1143,7 @@ $('reply-send').addEventListener('click', sendReply);
 $('reply-release').addEventListener('click', releaseTurn);
 $('letter-remove').addEventListener('click', () => removeLetter(false));
 $('letter-clear').addEventListener('click', () => armedClick('letter-clear', 'Sure? Clear all', () => { removeLetter(true); $('letter-clear').textContent = 'Clear all'; }));
-$('reply-text').addEventListener('keydown', (e) => { if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); sendReply(); } });
+sendOnEnter($('reply-text'), sendReply);
 $('attention').addEventListener('click', () => {
   if (unread <= 0 || mode === 'needs_you') return;
   const idx = letters.map((x) => !readIds.has(x.id)).lastIndexOf(true);
