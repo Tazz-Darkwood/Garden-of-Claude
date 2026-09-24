@@ -265,8 +265,9 @@ function deskState() {
   const s = focused();
   if (!s) return { s: null, mode: 'none' };
   if (pendingHolds[s.id]) return { s, mode: 'ready' };
-  if (Date.now() - (s.lastSeen || 0) < 10 * 60 * 1000) return { s, mode: 'queue' };
-  return { s, mode: 'none' };
+  if (Date.now() - (s.lastSeen || 0) >= 10 * 60 * 1000) return { s, mode: 'none' };
+  if (s.status === 'idle' || s.status === 'your_turn') return { s, mode: 'later' };
+  return { s, mode: 'queue' };
 }
 function hitDesk(x, y) { return x >= desk.x - 8 && x <= desk.x + desk.w + 8 && y >= desk.y - 70 && y <= desk.y + 8; }
 function openDesk() {
@@ -275,7 +276,9 @@ function openDesk() {
   const sel = $('desk-session');
   $('desk-meta').textContent = sessionLabel(st.s) + ' · ' + st.s.cwd;
   const note = $('desk-note');
+  const waiting = queuedNotes[st.s.id] ? ' One note is already waiting; sending replaces it.' : '';
   if (st.mode === 'ready') { note.className = ''; note.textContent = 'Claude is standing by. This goes straight to it.'; $('desk-send').textContent = 'Send'; }
+  else if (st.mode === 'later') { note.className = 'off'; note.textContent = 'Claude has finished its turn in the app, and nothing here can start a new one. Your note is kept and goes to Claude with the next message you type in the app.' + waiting; $('desk-send').textContent = 'Keep for my next app message'; }
   else { note.className = ''; note.textContent = 'Claude is busy. Your note is handed over the moment this turn ends.' + (queuedNotes[st.s.id] ? ' One note is already waiting; sending replaces it.' : ''); $('desk-send').textContent = 'Queue for when Claude pauses'; }
   sel.classList.add('hidden');
   showPanel('desk');
@@ -287,11 +290,11 @@ async function sendDesk() {
   const text = $('desk-text').value.trim(); if (!text) return;
   $('desk-send').disabled = true;
   try {
-    const r = await fetch('/reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: st.s.id, text, queue: st.mode === 'queue' }) });
+    const r = await fetch('/reply', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ session_id: st.s.id, text, queue: st.mode !== 'ready' }) });
     const j = await r.json().catch(() => ({}));
     if (r.ok) {
       $('desk-text').value = '';
-      if (j.queued) { pushTicker('you → ' + sessionLabel(st.s) + ' (queued): ' + oneLine(text, 80), 'you'); }
+      if (j.queued) { pushTicker('you → ' + sessionLabel(st.s) + (st.mode === 'later' ? ' (kept for your next app message): ' : ' (queued): ') + oneLine(text, 80), 'you'); }
       else { pushTicker('you → ' + sessionLabel(st.s) + ': ' + oneLine(text, 90), 'you'); addEntry(st.s.id, 'you', text); dawnFlash = Math.max(dawnFlash, 0.8); }
       closeDesk();
     } else { $('desk-note').className = 'off'; $('desk-note').textContent = j.error || 'Could not send.'; }
@@ -319,7 +322,7 @@ sendOnEnter($('desk-text'), sendDesk);
 
 function drawDesk(t) {
   const st = deskState();
-  const on = st.mode === 'ready', queue = st.mode === 'queue';
+  const on = st.mode === 'ready', queue = st.mode === 'queue' || st.mode === 'later';
   const { x, y, w } = desk;
   ctx.fillStyle = '#7a5433'; ctx.fillRect(x, y - 30, w, 6); ctx.fillRect(x + 4, y - 24, 5, 26); ctx.fillRect(x + w - 9, y - 24, 5, 26);
   ctx.fillStyle = on ? '#fffdf2' : queue ? '#e6dfcf' : '#a9a29a';
@@ -1179,6 +1182,11 @@ function connect() {
     if (typeof msg.paused === 'boolean') paused = msg.paused;
     if (msg.pending) pendingHolds = msg.pending;
     if (msg.queued) queuedNotes = msg.queued;
+    if (msg.delivered && msg.delivered.text) {
+      pushTicker('your desk note went in with your app message: ' + oneLine(msg.delivered.text, 80), 'you');
+      addEntry(msg.delivered.session_id, 'you', msg.delivered.text);
+      dawnFlash = Math.max(dawnFlash, 0.8);
+    }
     if (msg.compactAt) compactAt = msg.compactAt;
     if (msg.type === 'snapshot') {
       const items = [...(msg.recent || []).slice(-40).map((e) => ({ at: e.received_at || 0, ev: e })), ...(msg.notes || []).map((n) => ({ at: n.at || 0, note: n }))].sort((a, b) => a.at - b.at);
@@ -1314,6 +1322,7 @@ function updateTip() {
     head = 'Writing desk';
     body = st.mode === 'ready' ? 'Claude is standing by. Click to write to ' + sessionLabel(st.s) + '.'
       : st.mode === 'queue' ? 'Claude is busy in ' + sessionLabel(st.s) + '. Click to leave a note for when this turn ends.' + (queuedNotes[st.s.id] ? '\nA note is already waiting.' : '')
+      : st.mode === 'later' ? 'Claude is idle in the app, and only the app can start a new turn. A note left here goes in with your next app message.' + (queuedNotes[st.s.id] ? '\nA note is already waiting.' : '')
       : 'No session to write to. Start one in the Claude app.';
   } else if (hitPest(hover.x, hover.y) >= 0) {
     head = 'A crow'; body = 'A tool call failed here.' + (has('greenhouse') ? ' The greenhouse keeps it harmless.' : ' The trickle is halved while it stays.') + '\nClick to shoo it for ' + fmt(10 * clickPower()) + ' sap.';
@@ -2656,7 +2665,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).style.display = 'none'; }
-window.__garden = { critters, particles, plants, garden, ambient, spawnAmbient };   // debugging handle
+window.__garden = { critters, particles, plants, garden, ambient, spawnAmbient, deskState, openDesk, sessions: () => sessions, holds: () => pendingHolds };   // debugging handle
 updateHud();
 requestAnimationFrame(frame);
 })();

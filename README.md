@@ -229,8 +229,11 @@ its between-tool thoughts.
 The **writing desk** next to the mailbox is how you talk to Claude without the
 app. When Claude is standing by (its lamp is lit) a note goes straight to it.
 When Claude is busy the desk queues the note and hands it over the moment the
-turn ends. The intended flow is: start the app, start the server, minimize
-the app, and run the session from the garden.
+turn ends. When Claude has finished its turn in the app (after a `/compact`,
+an interrupted turn, or a letter you let it finish), nothing outside the app
+can start a new one: the desk says so, keeps the note, and it goes in with the
+next message you type in the app. The intended flow is: start the app, start
+the server, minimize the app, and run the session from the garden.
 
 ## Stats and tuning
 

@@ -147,6 +147,13 @@ function contextFrom(transcriptPath) {
   let prompt = '';
   for (let i = lines.length - 1; i >= 0; i--) {
     let e; try { e = JSON.parse(lines[i]); } catch { continue; }
+    // Everything above a compaction boundary is gone from the window; until the
+    // first reply after it reports real usage, the context is as good as empty.
+    if (e.type === 'system' && e.subtype === 'compact_boundary') {
+      if (!ctx) ctx = { tokens: 0, model: '', window: windowFor(''), at: Date.now(), fresh: true };
+      break;
+    }
+    if (e.isCompactSummary) continue;
     if (!ctx && e.type === 'assistant' && e.message && e.message.usage) {
       const u = e.message.usage;
       const tokens = (u.input_tokens || 0) + (u.cache_read_input_tokens || 0) + (u.cache_creation_input_tokens || 0);
@@ -171,6 +178,7 @@ function refreshContext(ev) {
     if (c) {
       if (c.prompt && !s.prompt) s.prompt = c.prompt.slice(0, 400);
       delete c.prompt;
+      if (c.fresh) { c.model = (s.context && s.context.model) || c.model; c.window = windowFor(c.model); delete c.fresh; }
       s.context = c; s.night = false;
     }
   } catch { /* transcript missing or partial */ }
@@ -470,6 +478,8 @@ function touchSession(ev) {
       s.status = 'working'; s.note = ''; s.pendingTool = null; break;
     case 'SubagentStart':
     case 'SubagentStop':
+      // Compaction runs a helper agent after the turn is over; only a prompt or a tool call starts a turn.
+      if (s.status === 'idle' || s.status === 'your_turn') break;
       s.status = 'working'; s.note = ''; break;
     case 'PreToolUse': {
       const inp = ev.tool_input || {};
@@ -506,6 +516,11 @@ function replyReason(text) {
     'Treat the following as their next message and continue the conversation with them:\n\n' + text;
 }
 
+function lateNoteContext(text) {
+  return 'Before this message, the user wrote the following at the desk in Garden of Claude, their companion overlay, ' +
+    'while no turn was running, so it was never delivered. Read it as their earlier message and answer both:\n\n' + text;
+}
+
 async function handleHook(req, res) {
   let payload = null;
   try { payload = JSON.parse(await readBody(req)); } catch { /* never fail the hook */ }
@@ -526,6 +541,17 @@ async function handleHook(req, res) {
   if (payload.hook_event_name === 'PreToolUse' && state.paused) {
     send(res, 200, JSON.stringify({
       hookSpecificOutput: { hookEventName: 'PreToolUse', permissionDecision: 'deny', permissionDecisionReason: PAUSE_REASON },
+    }));
+    return;
+  }
+
+  // A desk note that never found a turn to ride on goes in with the next prompt from the app.
+  if (payload.hook_event_name === 'UserPromptSubmit' && payload.session_id && queued.has(payload.session_id)) {
+    const sid = payload.session_id;
+    const text = queued.get(sid); queued.delete(sid);
+    broadcast({ type: 'state', delivered: { session_id: sid, text }, ...snapshot() });
+    send(res, 200, JSON.stringify({
+      hookSpecificOutput: { hookEventName: 'UserPromptSubmit', additionalContext: lateNoteContext(text) },
     }));
     return;
   }
