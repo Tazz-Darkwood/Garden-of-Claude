@@ -145,6 +145,25 @@ assistant message's input plus cached tokens, divided by the model's window
 `GARDEN_CONTEXT_WINDOW`). Compaction is due at 90% of the window by default
 (`GARDEN_COMPACT_AT`). Compaction ends with a brief flash of daylight.
 
+## Themes
+
+The look is a theme, and the numbers underneath are not. A theme is a set of
+optional overrides over the garden baseline: the words the interface uses,
+names and icons for shop items and species, a sky palette, and canvas
+renderers for scene elements; anything a theme leaves out falls back to the
+garden. The **Theme** button in the panel cycles through them (remembered per
+browser), and `?theme=wizard` in the address opens one directly.
+
+- **Garden** (default): the plant, the pot, sap, seeds, water, light, nutrients.
+- **Wizard tower**: a tower that gains a floor per stage on a rune-carved
+  plinth, mana for sap, runes for seeds, ether, starlight, and ley power for
+  the meters, a wand and grimoire in the shop, imps for failed tools, wisps
+  for bees, an observatory for the greenhouse, and apprentices in pointy hats
+  for subagents. Windows light at stage five, a crystal tops the spire at six,
+  stones orbit from seven, and a storm ring crackles from eight.
+
+Adding a theme is one object in `game/game.js` (see `THEMES.wizard`).
+
 ## What else the garden shows
 
 - **Session title.** The name tag on each pot carries the session's title from

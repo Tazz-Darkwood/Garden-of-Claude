@@ -2232,7 +2232,8 @@ function drawGardeners(r, s, t) {
     ctx.fillStyle = col([70, 60, 80], dl); ctx.fillRect(-5, -12, 4, 12); ctx.fillRect(1, -12, 4, 12);
     ctx.fillStyle = col(shirt, dl); ctx.beginPath(); ctx.roundRect(-7, -30, 14, 19, 4); ctx.fill();
     ctx.fillStyle = col([241, 201, 165], dl); ctx.beginPath(); ctx.arc(0, -36, 6, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = col([200, 160, 90], dl); ctx.beginPath(); ctx.ellipse(0, -40, 10, 3, 0, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.roundRect(-5, -47, 10, 8, 2); ctx.fill();
+    if (theme.hat === 'wizard') { ctx.fillStyle = col([70, 50, 130], dl); ctx.beginPath(); ctx.ellipse(0, -40, 11, 3, 0, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.moveTo(-7, -40); ctx.lineTo(7, -40); ctx.lineTo(2 + Math.sin(t * 2 + seed) * 2, -60); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#ffd45c'; ctx.beginPath(); ctx.arc(0, -50, 1.6, 0, Math.PI * 2); ctx.fill(); }
+    else { ctx.fillStyle = col([200, 160, 90], dl); ctx.beginPath(); ctx.ellipse(0, -40, 10, 3, 0, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.roundRect(-5, -47, 10, 8, 2); ctx.fill(); }
     // arms and rake, swinging as they work
     ctx.strokeStyle = col([241, 201, 165], dl); ctx.lineWidth = 3; ctx.lineCap = 'round';
     ctx.beginPath(); ctx.moveTo(6, -26); ctx.lineTo(14 + work * 3, -18 + work * 2); ctx.stroke();
@@ -3086,6 +3087,265 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).style.display = 'none'; }
+// ---------- theme: wizard tower ----------
+// The same game with a tower instead of a plant: mana for sap, runes for seeds,
+// ether, starlight, and ley power for the meters, imps for crows, wisps for bees.
+(function registerWizard() {
+  const stone = (k, dl, a) => col([k, k, k + 8], dl, a);
+  function wizGround(t) {
+    const dl = daylight();
+    const [, skyBottom] = skyColors(t);
+    // jagged far peaks tinted by the sky
+    for (let layer = 0; layer < 2; layer++) {
+      const base = soilY - 24 - layer * 30;
+      ctx.fillStyle = col(mix([60, 45, 90], skyBottom, layer ? 0.5 : 0.3), dl * (layer ? 1 : 0.9));
+      ctx.beginPath(); ctx.moveTo(0, soilY);
+      for (let x = 0; x <= W; x += 14) {
+        const y = base - Math.abs(Math.sin(x * 0.004 + layer * 1.7)) * 44 - Math.abs(Math.sin(x * 0.017 + layer)) * 14 - (Math.sin(x * 0.05) > 0.7 ? 10 : 0);
+        ctx.lineTo(x, y);
+      }
+      ctx.lineTo(W, soilY); ctx.closePath(); ctx.fill();
+    }
+    // flagstone floor
+    const g = ctx.createLinearGradient(0, soilY - 8, 0, H);
+    g.addColorStop(0, stone(118, dl)); g.addColorStop(0.4, stone(92, dl)); g.addColorStop(1, stone(58, dl));
+    ctx.fillStyle = g; ctx.fillRect(0, soilY - 8, W, H - soilY + 8);
+    ctx.strokeStyle = 'rgba(20,18,30,' + (0.35 * dl + 0.1).toFixed(2) + ')'; ctx.lineWidth = 1;
+    for (let row = 0; row < 6; row++) {
+      const y = soilY + 6 + row * ((H - soilY) / 6);
+      ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke();
+      const off = (row % 2) * 45;
+      for (let x = off; x < W; x += 90) { ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x, y + (H - soilY) / 6); ctx.stroke(); }
+    }
+    // runes set into the floor, pulsing
+    for (const pb of pebbles) {
+      const x = pb.x * W, y = soilY + 10 + pb.y * (H - soilY - 20);
+      const al = 0.25 + 0.35 * Math.max(0, Math.sin(t * 0.8 + pb.x * 20));
+      ctx.strokeStyle = 'rgba(150,120,255,' + al.toFixed(2) + ')'; ctx.lineWidth = 1.2;
+      ctx.beginPath(); ctx.arc(x, y, 2 + pb.r * 2, 0, Math.PI * 2); ctx.stroke();
+    }
+    // moss tufts in the cracks
+    ctx.strokeStyle = col([70, 110, 80], dl); ctx.lineWidth = 1.2; ctx.lineCap = 'round';
+    for (const tf of tufts) {
+      if (tf.h > 7) continue;
+      const x = tf.x * W, y = soilY + 4 + tf.y * (H - soilY - 8);
+      ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + tf.lean, y - tf.h * 0.7); ctx.stroke();
+    }
+  }
+  function wizPlanter(r, s, plant, isFocus) {
+    const { x, w, y, h, cx } = r;
+    const dl = daylight();
+    shadow(cx, y + h + 3, w * 1.05, w * 0.06);
+    const body = ctx.createLinearGradient(x, 0, x + w, 0);
+    body.addColorStop(0, stone(isFocus ? 150 : 138, dl)); body.addColorStop(0.55, stone(112, dl)); body.addColorStop(1, stone(80, dl));
+    ctx.fillStyle = body;
+    ctx.beginPath(); ctx.moveTo(x - 4, y + h); ctx.lineTo(x + 4, y); ctx.lineTo(x + w - 4, y); ctx.lineTo(x + w + 4, y + h); ctx.closePath(); ctx.fill();
+    // rune band
+    ctx.strokeStyle = 'rgba(150,120,255,' + (0.35 + 0.25 * Math.sin(Date.now() / 700)).toFixed(2) + ')'; ctx.lineWidth = 1.5;
+    ctx.beginPath(); ctx.moveTo(x + 8, y + h * 0.62); ctx.lineTo(x + w - 8, y + h * 0.62); ctx.stroke();
+    ctx.font = '600 9px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(190,170,255,0.7)';
+    for (let i = 0; i < Math.floor(w / 26); i++) ctx.fillText(['ᚠ', 'ᛉ', 'ᚨ', 'ᛟ', 'ᚱ', 'ᛏ'][i % 6], x + 18 + i * 26, y + h * 0.62 - 7);
+    const rings = Math.min(6, (s && s.compactions) || 0);
+    if (rings) { ctx.strokeStyle = stone(50, dl, 0.7); ctx.lineWidth = 2; for (let i = 0; i < rings; i++) { const yy = y + 12 + i * 6; ctx.beginPath(); ctx.moveTo(x + 6, yy); ctx.lineTo(x + w - 6, yy); ctx.stroke(); } }
+    // cap stone
+    ctx.fillStyle = stone(160, dl); ctx.beginPath(); ctx.roundRect(x - 2, y - 9, w + 4, 12, 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,' + (0.12 * dl).toFixed(2) + ')'; ctx.fillRect(x, y - 8, w, 2);
+    if (plant) { ctx.fillStyle = 'rgba(120,100,255,' + ((plant.water / waterCap()) * 0.3).toFixed(2) + ')'; ctx.fillRect(x + 2, y - 8, w - 4, 10); }
+    if (s) {
+      const label = sessionLabel(s);
+      ctx.font = '600 12px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      const tw = Math.min(w - 16, ctx.measureText(label).width + 26);
+      ctx.fillStyle = 'rgba(40,30,70,0.92)';
+      ctx.beginPath(); ctx.roundRect(cx - tw / 2, y + h / 2 - 10, tw, 20, 5); ctx.fill();
+      const lamp = { working: '#6fd38a', needs_you: '#ff8f4d', your_turn: '#ffcb5c', idle: '#8a93a6' }[s.status] || '#8a93a6';
+      ctx.fillStyle = lamp; ctx.beginPath(); ctx.arc(cx - tw / 2 + 10, y + h / 2, 4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#efe8ff';
+      ctx.save(); ctx.beginPath(); ctx.rect(cx - tw / 2 + 16, y, tw - 20, h); ctx.clip();
+      ctx.fillText(label, cx + 6, y + h / 2); ctx.restore();
+      const pct = Math.round(100 * contextFraction(s));
+      const ctxText = s.night ? '☽ compacting' : 'context ' + pct + '%';
+      ctx.font = '600 10px "Segoe UI", system-ui, sans-serif';
+      const cw = ctx.measureText(ctxText).width + 14;
+      const warn = !s.night && pct >= 100 * compactAt * 0.85;
+      ctx.fillStyle = warn ? 'rgba(255,170,90,0.94)' : 'rgba(40,30,70,0.85)';
+      ctx.beginPath(); ctx.roundRect(cx - cw / 2, y + h / 2 + 12, cw, 15, 4); ctx.fill();
+      ctx.fillStyle = warn ? '#3a1d05' : '#d9d0ff'; ctx.fillText(ctxText, cx, y + h / 2 + 19.5);
+    }
+  }
+  // The tower: one floor per stage, windows that light at "lit windows", a crystal
+  // at the spire, floating stones, a storm ring, and the same late-stage glow.
+  function wizTower(r, sid, t, plant, wilt) {
+    if (!plant) return;
+    const dl = daylight();
+    const sp = speciesOf(plant), si = plantStage(plant), prog = plantProgress(plant);
+    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.25 : 1);
+    const cx = r.cx, base = r.y - 6;
+    const shape = sp.shape;
+    const floors = Math.min(si, 12), floorH = (shape === 'stem' ? 16 : 12) * k;
+    const bw = (shape === 'stem' ? 22 : shape === 'spikes' ? 40 : shape === 'cactus' ? 24 : 34) * k;
+    const height = floors * floorH + prog * floorH * 0.6;
+    const wall = shape === 'cactus' ? [30, 26, 40] : shape === 'fronds' ? [150, 200, 230] : shape === 'moon' ? [200, 205, 225] : shape === 'stem' ? [220, 190, 110] : shape === 'spikes' ? [140, 100, 200] : [126, 122, 136];
+    const lit = si >= 5;
+    ctx.save(); ctx.globalAlpha = 1 - wilt * 0.6;
+    if (si === 0) {
+      // the foundation: a ring of stones
+      ctx.fillStyle = stone(120, dl);
+      for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.ellipse(cx - 15 * k + i * 6 * k, base - 2, 4 * k, 3 * k, 0, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore(); return;
+    }
+    // floating isle: the tower rides a rock above the plinth
+    let lift = 0;
+    if (shape === 'bonsai' && si >= 3) { lift = 18 * k + Math.sin(t * 0.8) * 4; ctx.fillStyle = stone(90, dl); ctx.beginPath(); ctx.moveTo(cx - bw * 0.9, base - lift + 2); ctx.lineTo(cx + bw * 0.9, base - lift + 2); ctx.lineTo(cx + bw * 0.4, base - lift + 16 * k); ctx.lineTo(cx - bw * 0.3, base - lift + 14 * k); ctx.closePath(); ctx.fill(); }
+    const b = base - lift;
+    // walls, one floor at a time, narrowing a touch as they climb
+    for (let f = 0; f < floors; f++) {
+      const y0 = b - (f + 1) * floorH, ww = bw * (1 - f * 0.02);
+      const g = ctx.createLinearGradient(cx - ww, 0, cx + ww, 0);
+      g.addColorStop(0, col(wall.map((c) => Math.min(255, c + 30)), dl)); g.addColorStop(0.5, col(wall, dl)); g.addColorStop(1, col(wall.map((c) => c * 0.6), dl));
+      ctx.fillStyle = g; ctx.fillRect(cx - ww, y0, ww * 2, floorH + 1);
+      if (shape !== 'fronds' && shape !== 'moon') { ctx.strokeStyle = 'rgba(0,0,0,' + (0.18 * dl + 0.05).toFixed(2) + ')'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx - ww, y0 + floorH); ctx.lineTo(cx + ww, y0 + floorH); ctx.stroke(); }
+      // windows
+      const n = shape === 'stem' ? 1 : 2;
+      for (let i = 0; i < n; i++) {
+        const wx = n === 1 ? cx : cx - ww * 0.45 + i * ww * 0.9, wy = y0 + floorH * 0.5;
+        const glow = lit ? 0.6 + 0.4 * Math.sin(t * 2 + f * 1.3 + i) : 0;
+        ctx.fillStyle = lit ? 'rgba(255,200,110,' + (0.5 + 0.5 * glow).toFixed(2) + ')' : 'rgba(20,16,40,0.8)';
+        ctx.beginPath(); ctx.roundRect(wx - 2.5 * k, wy - 4 * k, 5 * k, 7 * k, [2.5 * k, 2.5 * k, 0, 0]); ctx.fill();
+        if (lit) { const gl = ctx.createRadialGradient(wx, wy, 1, wx, wy, 12 * k); gl.addColorStop(0, 'rgba(255,200,110,' + (0.35 * glow).toFixed(2) + ')'); gl.addColorStop(1, 'rgba(255,200,110,0)'); ctx.fillStyle = gl; ctx.fillRect(wx - 12 * k, wy - 12 * k, 24 * k, 24 * k); }
+      }
+    }
+    // the floor in progress rises out of the last one
+    if (floors < 12 && prog > 0.05) { const y0 = b - floors * floorH - prog * floorH * 0.6; ctx.fillStyle = col(wall, dl * 0.9, 0.7); ctx.fillRect(cx - bw * 0.9, y0, bw * 1.8, prog * floorH * 0.6 + 1); }
+    const top = b - floors * floorH;
+    // roof by species
+    const roofY = top - (shape === 'stem' ? 30 : 22) * k;
+    if (shape === 'rose' || (shape === 'branch' && sp.thorns)) {
+      ctx.fillStyle = stone(100, dl); for (let i = -2; i <= 2; i++) ctx.fillRect(cx + i * bw * 0.4 - 3 * k, top - 8 * k, 6 * k, 8 * k);
+      ctx.fillStyle = '#c94a3a'; ctx.beginPath(); ctx.moveTo(cx, top - 8 * k); ctx.lineTo(cx, top - 30 * k); ctx.lineTo(cx + 12 * k + Math.sin(t * 3) * 3, top - 25 * k); ctx.lineTo(cx, top - 20 * k); ctx.closePath(); ctx.fill();
+    } else if (shape === 'cactus') {
+      ctx.fillStyle = col([20, 16, 30], dl); ctx.beginPath(); ctx.moveTo(cx - bw, top); ctx.lineTo(cx + bw, top); ctx.lineTo(cx, top - 40 * k); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,80,60,' + (0.5 + 0.4 * Math.sin(t * 3)).toFixed(2) + ')'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(cx - bw * 0.5, top - 10 * k); ctx.lineTo(cx, top - 32 * k); ctx.stroke();
+    } else if (shape === 'spikes') {
+      for (let i = -1; i <= 1; i++) { ctx.fillStyle = col([170, 130, 230], dl, 0.9); ctx.beginPath(); ctx.moveTo(cx + i * bw * 0.6 - 8 * k, top); ctx.lineTo(cx + i * bw * 0.6 + 8 * k, top); ctx.lineTo(cx + i * bw * 0.6, top - (28 - Math.abs(i) * 10) * k); ctx.closePath(); ctx.fill(); }
+    } else if (shape === 'fronds' || shape === 'moon') {
+      ctx.fillStyle = shape === 'moon' ? col([225, 228, 245], dl) : col([180, 230, 255], dl, 0.9); ctx.beginPath(); ctx.moveTo(cx - bw, top); ctx.lineTo(cx + bw, top); ctx.lineTo(cx, roofY - 10 * k); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.moveTo(cx - bw * 0.6, top); ctx.lineTo(cx - bw * 0.2, top); ctx.lineTo(cx - 2 * k, roofY - 6 * k); ctx.closePath(); ctx.fill();
+    } else {
+      // slate cone with an overhang
+      ctx.fillStyle = col(shape === 'stem' ? [200, 150, 60] : [70, 60, 100], dl); ctx.beginPath(); ctx.moveTo(cx - bw - 5 * k, top); ctx.lineTo(cx + bw + 5 * k, top); ctx.lineTo(cx, roofY); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.12 * dl).toFixed(2) + ')'; ctx.beginPath(); ctx.moveTo(cx - bw - 5 * k, top); ctx.lineTo(cx - bw * 0.3, top); ctx.lineTo(cx - 2 * k, roofY + 4 * k); ctx.closePath(); ctx.fill();
+    }
+    const spireTip = shape === 'cactus' ? top - 40 * k : shape === 'spikes' ? top - 28 * k : shape === 'rose' ? top - 30 * k : roofY - (shape === 'fronds' || shape === 'moon' ? 10 * k : 0);
+    // crystal at the spire from the crystal-spire stage
+    if (si >= 6) {
+      const pulse = 0.6 + 0.4 * Math.sin(t * 2.5);
+      const hue = si >= 10 ? (t * 40) % 360 : shape === 'cactus' ? 0 : shape === 'moon' ? 210 : 270;
+      const gl = ctx.createRadialGradient(cx, spireTip - 8 * k, 1, cx, spireTip - 8 * k, 30 * k); gl.addColorStop(0, 'hsla(' + hue + ',90%,75%,' + (0.5 * pulse).toFixed(2) + ')'); gl.addColorStop(1, 'hsla(' + hue + ',90%,75%,0)'); ctx.fillStyle = gl; ctx.fillRect(cx - 30 * k, spireTip - 38 * k, 60 * k, 60 * k);
+      ctx.fillStyle = 'hsl(' + hue + ',90%,' + (65 + 15 * pulse) + '%)'; ctx.beginPath(); ctx.moveTo(cx, spireTip - 18 * k); ctx.lineTo(cx + 5 * k, spireTip - 8 * k); ctx.lineTo(cx, spireTip + 2 * k); ctx.lineTo(cx - 5 * k, spireTip - 8 * k); ctx.closePath(); ctx.fill();
+    } else if (shape === 'stem' && si >= 3) {
+      // the sun spire's beacon follows the sun
+      const sunX = W * 0.08 + dayFraction() * W * 0.84; const dir = Math.sign(sunX - cx) || 1;
+      ctx.fillStyle = 'rgba(255,220,120,' + (0.6 + 0.3 * Math.sin(t * 4)).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(cx + dir * 3 * k, spireTip + 2 * k, 4 * k, 0, Math.PI * 2); ctx.fill();
+    }
+    // floating stones orbit from the floating-stones stage
+    if (si >= 7) {
+      const n = Math.min(8, si - 4);
+      for (let i = 0; i < n; i++) {
+        const a = t * 0.7 + i * (Math.PI * 2 / n), ry = (top + b) / 2, rx = bw + 22 * k;
+        const sx = cx + Math.cos(a) * rx, sy = ry + Math.sin(a) * 10 * k + Math.sin(t * 1.5 + i) * 4;
+        const front = Math.sin(a) > 0;
+        ctx.globalAlpha = (1 - wilt * 0.6) * (front ? 1 : 0.55);
+        ctx.fillStyle = stone(front ? 120 : 90, dl); ctx.beginPath(); ctx.moveTo(sx - 5 * k, sy); ctx.lineTo(sx, sy - 4 * k); ctx.lineTo(sx + 5 * k, sy); ctx.lineTo(sx, sy + 4 * k); ctx.closePath(); ctx.fill();
+      }
+      ctx.globalAlpha = 1 - wilt * 0.6;
+    }
+    // a storm ring with lightning from the storm-ring stage
+    if (si >= 8) {
+      const ry = top - 6 * k, rx = bw + 34 * k;
+      ctx.strokeStyle = 'rgba(160,160,200,' + (0.25 + 0.15 * Math.sin(t)).toFixed(2) + ')'; ctx.lineWidth = 4 * k; ctx.beginPath(); ctx.ellipse(cx, ry, rx, 8 * k, 0, 0, Math.PI * 2); ctx.stroke();
+      if (Math.sin(t * 7 + si) > 0.93) { ctx.strokeStyle = 'rgba(220,230,255,0.9)'; ctx.lineWidth = 1.5; ctx.beginPath(); let lx = cx + (Math.random() - 0.5) * rx * 1.6, ly = ry; ctx.moveTo(lx, ly); for (let i = 0; i < 5; i++) { lx += (Math.random() - 0.5) * 14 * k; ly += 9 * k; ctx.lineTo(lx, ly); } ctx.stroke(); }
+    }
+    // late stages: aura, rune ring, and mythic beams
+    if (si >= 9) { const gl = ctx.createRadialGradient(cx, (top + b) / 2, 4, cx, (top + b) / 2, bw + 60 * k); gl.addColorStop(0, 'rgba(150,120,255,' + (si >= 10 ? 0.22 : 0.14) + ')'); gl.addColorStop(1, 'rgba(150,120,255,0)'); ctx.fillStyle = gl; ctx.fillRect(cx - bw - 60 * k, top - 40 * k, (bw + 60 * k) * 2, b - top + 80 * k); }
+    if (si >= 10) { ctx.font = (10 * k).toFixed(1) + 'px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; for (let i = 0; i < 8; i++) { const a = -t * 0.5 + i * Math.PI / 4; ctx.fillStyle = 'hsla(' + ((t * 30 + i * 45) % 360) + ',85%,75%,0.9)'; ctx.fillText(['ᚠ', 'ᛉ', 'ᚨ', 'ᛟ', 'ᚱ', 'ᛏ', 'ᛗ', 'ᚦ'][i], cx + Math.cos(a) * (bw + 46 * k), (top + b) / 2 + Math.sin(a) * 14 * k); } }
+    if (si >= 13) { for (let i = 0; i < 3; i++) { const a = t * 0.3 + i * 2.1; ctx.strokeStyle = 'hsla(' + ((t * 40 + i * 120) % 360) + ',90%,80%,0.35)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx, spireTip - 18 * k); ctx.lineTo(cx + Math.cos(a) * W * 0.4, spireTip - 18 * k - Math.abs(Math.sin(a)) * H * 0.5 - 40); ctx.stroke(); } }
+    ctx.restore();
+  }
+  function wizObservatory(t) {
+    if (!has('greenhouse')) return;
+    const dl = daylight();
+    const w = Math.max(96, Math.min(150, W * 0.11)), h = w * 0.7;
+    const x = W * 0.27 - w / 2, y = soilY - 4;
+    shadow(x + w / 2, y + 3, w * 1.05, 5, 0.15);
+    ctx.fillStyle = stone(110, dl); ctx.fillRect(x + w * 0.15, y - h * 0.55, w * 0.7, h * 0.55);
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1; for (let i = 1; i < 4; i++) { ctx.beginPath(); ctx.moveTo(x + w * 0.15, y - h * 0.55 * i / 4); ctx.lineTo(x + w * 0.85, y - h * 0.55 * i / 4); ctx.stroke(); }
+    ctx.fillStyle = col([80, 70, 120], dl); ctx.beginPath(); ctx.arc(x + w / 2, y - h * 0.55, w * 0.36, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = col([40, 30, 70], dl); ctx.beginPath(); ctx.moveTo(x + w / 2 - 5, y - h * 0.55); ctx.lineTo(x + w / 2 + 5, y - h * 0.55); ctx.lineTo(x + w / 2 + 3, y - h * 0.55 - w * 0.34); ctx.lineTo(x + w / 2 - 3, y - h * 0.55 - w * 0.34); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = col([200, 180, 120], dl); ctx.lineWidth = 3; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x + w / 2, y - h * 0.6); ctx.lineTo(x + w / 2 + 18, y - h * 0.6 - w * 0.36 - 6); ctx.stroke();
+    ctx.fillStyle = 'rgba(255,220,140,' + (0.25 + 0.5 * (1 - dl)).toFixed(2) + ')'; ctx.fillRect(x + w * 0.3, y - h * 0.4, 8, 10); ctx.fillRect(x + w * 0.62, y - h * 0.4, 8, 10);
+  }
+  function wizImps(t) {
+    for (const p of pests) {
+      const pos = pestPos(p); if (!pos) continue;
+      const x = pos.x, y = pos.y + Math.sin(t * 3 + p.flap) * 2;
+      ctx.fillStyle = '#c0392b'; ctx.beginPath(); ctx.ellipse(x, y - 4, 6, 7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(x - 5, y - 9); ctx.lineTo(x - 4, y - 15); ctx.lineTo(x - 1, y - 10); ctx.moveTo(x + 5, y - 9); ctx.lineTo(x + 4, y - 15); ctx.lineTo(x + 1, y - 10); ctx.fill();
+      ctx.fillStyle = '#ffd45c'; ctx.beginPath(); ctx.arc(x - 2, y - 5, 1.2, 0, Math.PI * 2); ctx.arc(x + 2, y - 5, 1.2, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#c0392b'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x + 5, y); ctx.quadraticCurveTo(x + 12, y + 2 + Math.sin(t * 4) * 3, x + 14, y - 6); ctx.stroke();
+    }
+  }
+  function wizWisps(t) {
+    for (const c of critters) {
+      const fade = Math.min(1, c.age * 3, (c.life - c.age) * 2);
+      const gl = ctx.createRadialGradient(c.x, c.y, 1, c.x, c.y, 14); gl.addColorStop(0, 'rgba(180,230,255,' + (0.9 * fade).toFixed(2) + ')'); gl.addColorStop(1, 'rgba(180,230,255,0)');
+      ctx.fillStyle = gl; ctx.fillRect(c.x - 14, c.y - 14, 28, 28);
+      ctx.fillStyle = 'rgba(255,255,255,' + fade.toFixed(2) + ')'; ctx.beginPath(); ctx.arc(c.x, c.y, 2.5, 0, Math.PI * 2); ctx.fill();
+      for (let k = 1; k <= 4; k++) { ctx.fillStyle = 'rgba(180,230,255,' + (fade * (0.5 - k * 0.1)).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(c.x - Math.sin(c.age * 1.3 + c.phase - k * 0.2) * 6 * k, c.y - Math.cos(c.age * 1.7 + c.phase - k * 0.2) * 4 * k, 2.5 - k * 0.4, 0, Math.PI * 2); ctx.fill(); }
+    }
+  }
+  THEMES.wizard = {
+    id: 'wizard', name: 'Wizard tower', hat: 'wizard',
+    words: {
+      title: '🔮 Tower of Claude', place: 'tower grounds', sap: 'mana', seed: 'rune', seeds: 'runes', plant: 'tower', plants: 'towers',
+      harvest: 'Ascend', harvested: 'ascended', nothingToHarvest: 'nothing to ascend', sprouted: 'was founded',
+      water: 'ether', light: 'starlight', nutrients: 'ley power', sunbeam: 'arcane beam', puddle: 'mana pool', greenhouse: 'observatory',
+      crowLanded: 'an imp appeared', crowTitle: 'An imp', birdTitle: 'A passing spirit', birdFloat: '👻 +',
+      beeTitle: 'A wisp', beeTip: 'Click it to bind it to the tower for a bonus before it drifts off.', beeVisit: 'a wisp is circling', beeFloat: '✨ bound +',
+      shopTitle: 'Arcane shop', shopTab: 'Grounds',
+      stages: ['foundation', 'cellar', 'ground floor', 'first floor', 'second floor', 'lit windows', 'crystal spire', 'floating stones', 'storm ring', 'glowing', 'enchanted', 'colossal', 'ancient', 'mythic'],
+    },
+    items: {
+      trowel: { name: 'Wand', icon: '🪄' }, can: { name: 'Grimoire', icon: '📖' }, shears: { name: 'Staff', icon: '🔱' }, trellis: { name: 'Crystal ball', icon: '🔮' }, hive: { name: 'Familiar', icon: '🐈‍⬛' },
+      longbeam: { name: 'Long beam', desc: 'The arcane beam after Claude writes a file lasts 12, then 16 seconds instead of 8.' },
+      brightbeam: { name: 'Bright beam', icon: '✨', desc: 'Clicks inside an arcane beam pay four times instead of three.' },
+      puddle: { name: 'Deep mana pool', icon: '🌀', desc: 'Clicks while ether rains on a tower pay double instead of 1.5 times.' },
+      birdseed: { name: 'Spirit lure', icon: '🕯️', desc: 'Catching a passing spirit pays three times as much.' },
+      hold: { desc: 'Hold the button down on a tower and it keeps clicking for you: 3 a second, then 4, 5, and 7, a touch faster than a fast thumb.' },
+      barrel: { name: 'Ether cistern', icon: '⚗️', desc: 'Ether holds 150 and drains a third slower.' },
+      compost: { name: 'Ley stone', icon: '🪨', desc: 'Shell commands give twice the ley power.' },
+      feeder: { name: 'Astrolabe', icon: '🧭', desc: 'Every tool call feeds ether, starlight, and ley power twice as much.' },
+      scarecrow: { name: 'Warding sigil', icon: '🛡️', desc: 'Imps from failed tools leave in 20 seconds instead of 60.' },
+      greenhouse: { name: 'Observatory', icon: '🔭', desc: 'An observatory on the grounds. Starlight drains a third slower and imps can no longer slow the trickle.' },
+    },
+    species: {
+      leafy: { name: 'Stone keep', blurb: 'The everyday tower. Grey stone, a slate roof, and windows that light up.' },
+      sunflower: { name: 'Sun spire', blurb: 'A slender golden spire whose beacon follows the sun.' },
+      cactus: { name: 'Obsidian obelisk', blurb: 'Black glass with red-lit seams. Ether drains slowly.' },
+      lavender: { name: 'Amethyst cluster', blurb: 'A clump of purple crystal towers that thickens as it grows.' },
+      rose: { name: 'Thorn citadel', blurb: 'Battlements and a red banner from the first floor up.' },
+      bonsai: { name: 'Floating isle', blurb: 'A tower on a rock that drifts above its plinth.' },
+      crystalfern: { name: 'Crystal spire', blurb: 'Translucent glowing crystal. Yields 30% more.' },
+      moonbloom: { name: 'Moon spire', blurb: 'A single silver spire that opens to the night.' },
+    },
+    palette: {
+      DAY: [[0.00, [60, 30, 90], [230, 150, 140]], [0.12, [70, 60, 150], [180, 160, 220]], [0.60, [80, 90, 180], [190, 185, 235]], [0.80, [90, 60, 150], [240, 170, 150]], [0.92, [50, 25, 90], [200, 90, 110]], [1.00, [22, 12, 50], [100, 50, 100]]],
+      NIGHT: [[8, 6, 26], [40, 24, 72]],
+    },
+    draw: { ground: wizGround, planter: wizPlanter, plant: wizTower, greenhouse: wizObservatory, pests: wizImps, critters: wizWisps },
+  };
+})();
+
 // Apply a theme: remember it, retitle the static labels, and redraw the shop.
 function applyTheme(id) {
   theme = THEMES[id] || THEMES.garden;
