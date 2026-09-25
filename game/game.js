@@ -2083,8 +2083,8 @@ function drawLantern(r, s, t) {
   const left = s.night ? 0 : Math.max(0, Math.min(1, 1 - contextFraction(s) / compactAt));
   // standing on the ground against the left side of the pot
   const k = Math.max(0.8, Math.min(1.3, r.scale || 1));
-  const bx = r.x - 16 * k, by = r.y + r.h;            // base centre on the ground
-  const gw = 22 * k, gh = 32 * k;                      // glass
+  const bx = r.x - 20 * k, by = r.y + r.h;            // base centre on the ground
+  const gw = 28 * k, gh = 44 * k;                      // glass
   const gx = bx - gw / 2, gy = by - 5 * k - gh;
   shadow(bx + 4, by + 2, gw + 14, 3, 0.2);
   const metal = col([62, 58, 64], dl), metalDark = col([44, 42, 48], dl);
@@ -2093,9 +2093,15 @@ function drawLantern(r, s, t) {
   // glass, tinted by what is behind it
   ctx.fillStyle = 'rgba(255,250,230,' + (0.16 + 0.12 * dl).toFixed(2) + ')'; ctx.beginPath(); ctx.roundRect(gx, gy, gw, gh, 3); ctx.fill();
   // oil: the level is the context that is left
-  const oilH = (gh - 4) * 0.5 * left;
+  const fillH = (gh - 4) * 0.62;               // the well: from the bottom of the glass up to the max line
+  const oilH = fillH * left;
   ctx.fillStyle = 'rgba(232,160,48,0.88)'; ctx.beginPath(); ctx.roundRect(gx + 2, gy + gh - 2 - oilH, gw - 4, oilH, [0, 0, 2, 2]); ctx.fill();
   ctx.fillStyle = 'rgba(255,220,140,0.5)'; ctx.fillRect(gx + 2, gy + gh - 2 - oilH, gw - 4, 1.5 * k);
+  // max fill line, with ticks at three quarters, half, and a quarter
+  const lineY = gy + gh - 2 - fillH;
+  ctx.strokeStyle = 'rgba(60,50,40,0.8)'; ctx.lineWidth = 1.2 * k; ctx.beginPath(); ctx.moveTo(gx + 2, lineY); ctx.lineTo(gx + gw - 2, lineY); ctx.stroke();
+  ctx.lineWidth = 1; for (const q of [0.75, 0.5, 0.25]) { const ty = gy + gh - 2 - fillH * q; ctx.beginPath(); ctx.moveTo(gx + 2, ty); ctx.lineTo(gx + 2 + 4 * k, ty); ctx.stroke(); }
+  ctx.fillStyle = 'rgba(60,50,40,0.8)'; ctx.font = (7 * k).toFixed(1) + 'px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText('max', gx + gw - 3, lineY - 1);
   // wick and flame
   const wx = gx + gw / 2, wy = gy + gh - 2 - oilH;
   ctx.fillStyle = metalDark; ctx.fillRect(wx - 0.8 * k, wy - 4 * k, 1.6 * k, 4 * k);
