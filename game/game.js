@@ -1335,7 +1335,13 @@ function updateTip() {
   let head = '', body = '';
   const stakeSid = hitStake(hover.x, hover.y);
   const gateSession = liveSessions().find((s) => s.status === 'needs_you');
-  if (stakeSid && sessions[stakeSid]) {
+  const lanternSid = hitLantern(hover.x, hover.y);
+  if (lanternSid && sessions[lanternSid]) {
+    const l = lanterns[lanternSid];
+    head = 'Lantern of ' + sessionLabel(sessions[lanternSid]);
+    body = l.night ? 'Out while the context is compacted. It is relit when compaction finishes.'
+      : 'Context ' + l.pct + '% full: ' + Math.round(l.left * 100) + '% of the light left before compaction is due.' + (l.left < 0.25 ? '\nIt is guttering. Let auto-compact run or type /compact in the app.' : '');
+  } else if (stakeSid && sessions[stakeSid]) {
     const s = sessions[stakeSid];
     const prompt = s.prompt || (plants[stakeSid] && plants[stakeSid].prompt) || '';
     head = 'You asked ' + sessionLabel(s); body = prompt ? oneLine(prompt, 600) : 'no prompt seen yet this session';
@@ -2064,6 +2070,56 @@ function drawStake(r, s) {
   let text = prompt ? oneLine(prompt, 60) : 'no prompt yet';
   while (text.length > 4 && ctx.measureText(text).width > bw - 12) text = text.slice(0, -2) + '…';
   ctx.fillText(text, sx, sy);
+}
+
+// A lantern hangs from each stake and burns down as that session's context
+// fills: full and bright when fresh, oil dropping and the flame guttering as
+// compaction nears, out and smoking while compaction runs. It is per planter
+// and gradual, so switching focus never changes it and nothing snaps.
+const lanterns = {};
+function drawLantern(r, s, t) {
+  if (!s) return;
+  const dl = daylight();
+  const sx = r.x + r.w - 14, sy = r.y - 34;
+  const left = s.night ? 0 : Math.max(0, Math.min(1, 1 - contextFraction(s) / compactAt));
+  ctx.fillStyle = col([122, 84, 51], dl); ctx.fillRect(sx - 2, sy - 38, 4, 28); ctx.fillRect(sx - 2, sy - 38, 18, 3);
+  const hx = sx + 14, hy = sy - 35;
+  const swing = Math.sin(t * 1.6 + r.x * 0.01) * 0.04 * (1 + weather.wind * 4);
+  ctx.save(); ctx.translate(hx, hy); ctx.rotate(swing);
+  const metal = col([62, 58, 64], dl), metalDark = col([44, 42, 48], dl);
+  ctx.strokeStyle = metal; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 3, 3, 0, Math.PI * 2); ctx.stroke();
+  ctx.fillStyle = metal; ctx.beginPath(); ctx.moveTo(-7.5, 10); ctx.lineTo(7.5, 10); ctx.lineTo(4, 6); ctx.lineTo(-4, 6); ctx.closePath(); ctx.fill();
+  const gx = -5.5, gy = 10, gw = 11, gh = 16;
+  ctx.fillStyle = 'rgba(255,250,230,' + (0.16 + 0.12 * dl).toFixed(2) + ')'; ctx.beginPath(); ctx.roundRect(gx, gy, gw, gh, 2); ctx.fill();
+  const oilH = gh * 0.42 * left;
+  ctx.fillStyle = 'rgba(232,160,48,0.85)'; ctx.fillRect(gx + 1, gy + gh - 1 - oilH, gw - 2, oilH);
+  if (left > 0) {
+    const low = left < 0.25;
+    const jitter = (low ? 0.7 : 0.15) * (Math.sin(t * 23 + r.x) * 0.5 + Math.sin(t * 37 + r.x) * 0.5);
+    const fr = 1.6 + 3.2 * left + jitter;
+    const fy = gy + gh - 2 - oilH - fr;
+    const c = mix([255, 240, 190], [255, 120, 50], 1 - left);
+    ctx.fillStyle = rgb(c, 0.95); ctx.beginPath(); ctx.ellipse(0, fy, fr * 0.6, fr, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.ellipse(0, fy + fr * 0.3, fr * 0.3, fr * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+  } else {
+    ctx.fillStyle = 'rgba(120,120,130,0.35)';
+    for (let k = 0; k < 3; k++) { const ph = (t * 0.6 + k * 0.33) % 1; ctx.beginPath(); ctx.arc(Math.sin(ph * 6 + k) * 3, gy + 8 - ph * 26, 1.5 + ph * 2.5, 0, Math.PI * 2); ctx.fill(); }
+  }
+  ctx.strokeStyle = metalDark; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.roundRect(gx, gy, gw, gh, 2); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(gx + gw / 2, gy); ctx.lineTo(gx + gw / 2, gy + gh); ctx.stroke();
+  ctx.fillStyle = metal; ctx.fillRect(gx - 1, gy + gh, gw + 2, 3);
+  ctx.restore();
+  if (left > 0) {
+    const ga = (0.06 + 0.3 * (1 - dl)) * (0.3 + 0.7 * left);
+    const g = ctx.createRadialGradient(hx, hy + 20, 2, hx, hy + 20, 50 + 40 * left);
+    g.addColorStop(0, 'rgba(255,200,110,' + ga.toFixed(2) + ')'); g.addColorStop(1, 'rgba(255,200,110,0)');
+    ctx.fillStyle = g; ctx.fillRect(hx - 100, hy - 80, 200, 200);
+  }
+  lanterns[s.id] = { x: hx, y: hy + 18, left, pct: Math.round(100 * contextFraction(s)), night: Boolean(s.night) };
+}
+function hitLantern(x, y) {
+  for (const [sid, l] of Object.entries(lanterns)) { if (!rects[sid]) continue; if (Math.abs(x - l.x) < 12 && Math.abs(y - l.y) < 20) return sid; }
+  return null;
 }
 
 function drawGate(t) {
@@ -2841,6 +2897,7 @@ function draw(t) {
     drawPlanter(r, s, plant, foc && foc.id === s.id);
     drawStake(r, s);
     drawPlant(r, s.id, t + (s.firstSeen % 1000) / 300, plant, s.status === 'needs_you' ? 0.35 : 0);
+    drawLantern(r, s, t);
   }
   drawUpgrades(t);
   drawPests(t);

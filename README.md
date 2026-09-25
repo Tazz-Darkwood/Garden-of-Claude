@@ -132,7 +132,11 @@ at 20:30, with stars and a moon in between, so the light stays steady when
 you switch between planters. Morning mist lies on the ground early, leaves
 fall at dusk, and the owl and fireflies come out after dark.
 
-How full each session's context is shows as a small line under the plant's
+How full each session's context is shows as a lantern hanging from the
+plant's stake: full and bright when the context is fresh, its oil dropping
+and its flame shrinking as the context fills, guttering in the last quarter
+before compaction is due, and out and smoking while compaction runs. Hover
+it for the numbers. The same figure appears as a small line under the plant's
 name tag ("context 27%", turning orange as compaction nears and reading
 "compacting" during it), in the session pill at the top, and in the panel's
 context meter. The fraction comes from the session transcript: the latest
