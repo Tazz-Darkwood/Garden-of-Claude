@@ -28,7 +28,7 @@ const GARDEN_WORDS = {
   water: 'water', light: 'light', nutrients: 'nutrients', sunbeam: 'sunbeam', puddle: 'puddle', greenhouse: 'greenhouse',
   crowLanded: 'a crow landed', crowTitle: 'A crow', birdTitle: 'A passing bird', birdFloat: '🐦 +',
   beeTitle: 'A bee', beeTip: 'Click it to pollinate the plant for a bonus before it flies off.', beeVisit: 'a bee is visiting', beeFloat: '🐝 pollinated +',
-  shopTitle: 'Garden shop', shopTab: 'Garden', stages: STAGE_NAMES, prestige: 'New season',
+  shopTitle: 'Garden shop', shopTab: 'Garden', stages: STAGE_NAMES, prestige: 'New season', season: 'season',
   mailboxTitle: 'Mailbox', mailboxEmpty: 'Letters arrive here only when Claude needs an answer from you.', deskTitle: 'Writing desk', gateTitle: 'The gate', lanternTitle: 'Lantern of', tend: 'click to tend',
   starTitle: 'A shooting star', butterflyTitle: 'A butterfly', catTitle: 'A cat', snailTitle: 'A snail', ladybugTitle: 'A ladybug',
   lanternOut: 'Out while the context is compacted. It is relit when compaction finishes.', lanternLeft: 'of the light left before compaction is due.', lanternLow: 'It is guttering. Let auto-compact run or type /compact in the app.',
@@ -202,29 +202,32 @@ const SOURCES = ['click', 'crit', 'window', 'trickle', 'burst', 'shoo', 'bird'];
 // point is a permanent +5% click power; points can also buy perks below.
 const LEGACY_DIV = 1e7;
 function legacyGain() { return Math.floor(Math.sqrt((garden.runLifetime || 0) / LEGACY_DIV)); }
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
 const PERKS = [
-  { id: 'headstart', name: 'Head start', cost: 1, desc: 'Every season begins with ten trowel levels and the watering can.' },
-  { id: 'deeproots', name: 'Deep roots', cost: 2, desc: 'Keep a quarter of your seeds through a new season.' },
-  { id: 'longlight', name: 'Long light', cost: 2, desc: 'Sunbeams and puddles last half again as long.' },
-  { id: 'patientsoil', name: 'Patient soil', cost: 2, desc: 'Meters drain a quarter slower.' },
-  { id: 'secondwind', name: 'Second wind', cost: 3, desc: 'The combo cap rises by half.' },
-  { id: 'greenkey', name: 'Greenhouse key', cost: 3, desc: 'The greenhouse and scarecrow are yours from the start of every season.' },
+  { id: 'headstart', name: 'Head start', cost: 1, desc: () => 'Every ' + W_('season') + ' begins with ten ' + itemName(ITEM.trowel).toLowerCase() + ' levels and the ' + itemName(ITEM.can).toLowerCase() + '.' },
+  { id: 'deeproots', name: 'Deep roots', cost: 2, desc: () => 'Keep a quarter of your ' + W_('seeds') + ' through a ' + W_('prestige').toLowerCase() + '.' },
+  { id: 'longlight', name: 'Long light', cost: 2, desc: () => cap(W_('sunbeam')) + 's and ' + W_('puddle') + 's last half again as long.' },
+  { id: 'patientsoil', name: 'Patient soil', cost: 2, desc: () => cap(W_('water')) + ', ' + W_('light') + ', and ' + W_('nutrients') + ' drain a quarter slower.' },
+  { id: 'secondwind', name: 'Second wind', cost: 3, desc: () => 'The combo cap rises by half.' },
+  { id: 'greenkey', name: 'Greenhouse key', cost: 3, desc: () => 'The ' + itemName(ITEM.greenhouse).toLowerCase() + ' and ' + itemName(ITEM.scarecrow).toLowerCase() + ' are yours from the start of every ' + W_('season') + '.' },
 ];
+const perkName = (p) => (theme.perkNames && theme.perkNames[p.id]) || p.name;
+const achName = (a) => (theme.achNames && theme.achNames[a.id]) || (typeof a.name === 'function' ? a.name() : a.name);
 const ACHIEVEMENTS = [
-  { id: 'clicks1k', name: 'Green thumb', desc: 'A thousand clicks.', check: () => garden.clicks >= 1000 },
-  { id: 'clicks100k', name: 'Calloused', desc: 'A hundred thousand clicks.', check: () => garden.clicks >= 100000 },
-  { id: 'held10k', name: 'Mouse saved', desc: 'Ten thousand held clicks.', check: () => (garden.held || 0) >= 10000 },
-  { id: 'crits1k', name: 'Lucky streak', desc: 'A thousand crits.', check: () => garden.crits >= 1000 },
-  { id: 'harvests10', name: 'Ten harvests', desc: 'Harvested ten plants.', check: () => garden.harvests >= 10 },
-  { id: 'seeds100', name: 'Seed bank', desc: 'A hundred seeds earned.', check: () => ledger.seeds >= 100 },
-  { id: 'mythic', name: 'Mythic', desc: 'Grew a plant to mythic.', check: () => (garden.maxStage || 0) >= 13 },
-  { id: 'cat', name: 'Cat person', desc: 'Petted the cat.', check: () => (garden.petted || 0) >= 1 },
-  { id: 'cat10', name: 'Regular', desc: 'Petted the cat ten times.', check: () => (garden.petted || 0) >= 10 },
-  { id: 'fireworks', name: 'Shipped', desc: 'Saw the fireworks for a push.', check: () => (garden.fireworks || 0) >= 1 },
-  { id: 'themes', name: 'Collector', desc: 'Owns every theme.', check: () => Object.keys(THEMES).every((id) => themeOwned(id)) },
-  { id: 'lifetime1b', name: 'Billionaire', desc: 'A billion lifetime sap.', check: () => garden.lifetime >= 1e9 },
-  { id: 'prestige1', name: 'New season', desc: 'Started a new season.', check: () => (garden.runs || []).length >= 1 },
-  { id: 'prestige5', name: 'Old hand', desc: 'Started five new seasons.', check: () => (garden.runs || []).length >= 5 },
+  { id: 'clicks1k', name: 'Green thumb', desc: () => 'A thousand clicks.', check: () => garden.clicks >= 1000 },
+  { id: 'clicks100k', name: 'Calloused', desc: () => 'A hundred thousand clicks.', check: () => garden.clicks >= 100000 },
+  { id: 'held10k', name: 'Mouse saved', desc: () => 'Ten thousand held clicks.', check: () => (garden.held || 0) >= 10000 },
+  { id: 'crits1k', name: 'Lucky streak', desc: () => 'A thousand crits.', check: () => garden.crits >= 1000 },
+  { id: 'harvests10', name: 'Ten harvests', desc: () => cap(W_('harvested')) + ' ten ' + W_('plants') + '.', check: () => garden.harvests >= 10 },
+  { id: 'seeds100', name: () => cap(W_('seed')) + ' bank', desc: () => 'A hundred ' + W_('seeds') + ' earned.', check: () => ledger.seeds >= 100 },
+  { id: 'mythic', name: () => cap(W_('stages')[13]), desc: () => 'Grew a ' + W_('plant') + ' to ' + W_('stages')[13] + '.', check: () => (garden.maxStage || 0) >= 13 },
+  { id: 'cat', name: 'Cat person', desc: () => 'Petted the cat.', check: () => (garden.petted || 0) >= 1 },
+  { id: 'cat10', name: 'Regular', desc: () => 'Petted the cat ten times.', check: () => (garden.petted || 0) >= 10 },
+  { id: 'fireworks', name: 'Shipped', desc: () => 'Saw the fireworks for a push.', check: () => (garden.fireworks || 0) >= 1 },
+  { id: 'themes', name: 'Collector', desc: () => 'Owns every theme.', check: () => Object.keys(THEMES).every((id) => themeOwned(id)) },
+  { id: 'lifetime1b', name: 'Billionaire', desc: () => 'A billion lifetime ' + W_('sap') + '.', check: () => garden.lifetime >= 1e9 },
+  { id: 'prestige1', name: () => W_('prestige'), desc: () => 'Started a ' + W_('prestige').toLowerCase() + '.', check: () => (garden.runs || []).length >= 1 },
+  { id: 'prestige5', name: 'Old hand', desc: () => 'Started five ' + W_('season') + 's over.', check: () => (garden.runs || []).length >= 5 },
 ];
 let achievementClock = 0;
 function checkAchievements(dt) {
@@ -235,9 +238,9 @@ function checkAchievements(dt) {
     let ok = false; try { ok = a.check(); } catch { ok = false; }
     if (!ok) continue;
     garden.achievements[a.id] = Date.now();
-    fly('achievement: ' + a.name + ' (+0.5% clicks)', '#ffcb5c');
-    pushTicker('achievement unlocked: ' + a.name + ' · ' + a.desc, 'ok');
-    recordEvent('achievement: ' + a.name, 0);
+    fly('achievement: ' + achName(a) + ' (+0.5% clicks)', '#ffcb5c');
+    pushTicker('achievement unlocked: ' + achName(a) + ' · ' + a.desc(), 'ok');
+    recordEvent('achievement: ' + achName(a), 0);
   }
 }
 function applyStartPerks() {
@@ -269,15 +272,17 @@ function renderAlmanac() {
     [pts, 'legacy points'],
     ['+' + Math.round(5 * pts) + '%', 'click power from legacy'],
     [ach + '/' + ACHIEVEMENTS.length, 'achievements (+' + (0.5 * ach).toFixed(1) + '%)'],
-    [garden.runs.length, 'seasons finished'],
-    [fmt(garden.runLifetime || 0), W_('sap') + ' this season'],
+    [garden.runs.length, W_('season') + 's finished'],
+    [fmt(garden.runLifetime || 0), W_('sap') + ' this ' + W_('season')],
   ];
+  $('almanac-h-perks').firstChild.textContent = 'Legacy perks ';
+  $('almanac-h-runs').textContent = 'Past ' + W_('season') + 's';
   $('almanac-rates').innerHTML = tiles.map(([v, k]) => '<div class="tile"><div class="v">' + esc(String(v)) + '</div><div class="k">' + esc(k) + '</div></div>').join('');
-  $('almanac-meta').textContent = 'season ' + (garden.runs.length + 1) + ' · since ' + new Date(garden.runStart || garden.born).toLocaleDateString();
+  $('almanac-meta').textContent = W_('season') + ' ' + (garden.runs.length + 1) + ' · since ' + new Date(garden.runStart || garden.born).toLocaleDateString();
   const nextAt = Math.pow(gain + 1, 2) * LEGACY_DIV;
   $('almanac-prestige-text').textContent = gain >= 1
-    ? W_('prestige') + ' now for +' + gain + ' legacy point' + (gain === 1 ? '' : 's') + ' (next one at ' + fmt(nextAt) + ' ' + W_('sap') + ' this season). It resets ' + W_('sap') + ', tools, skills, ' + W_('place') + ' items, ' + W_('seeds') + ', and the ' + W_('plant') + '. Themes, legacy, achievements, and the ledger stay.'
-    : 'The first legacy point needs ' + fmt(LEGACY_DIV) + ' ' + W_('sap') + ' earned this season (you are at ' + fmt(garden.runLifetime || 0) + '). Every point after that costs more: the next one arrives at ' + fmt(nextAt) + '.';
+    ? W_('prestige') + ' now for +' + gain + ' legacy point' + (gain === 1 ? '' : 's') + ' (next one at ' + fmt(nextAt) + ' ' + W_('sap') + ' this ' + W_('season') + '). It resets ' + W_('sap') + ', tools, skills, ' + W_('place') + ' items, ' + W_('seeds') + ', and the ' + W_('plant') + '. Themes, legacy, achievements, and the ledger stay.'
+    : 'The first legacy point needs ' + fmt(LEGACY_DIV) + ' ' + W_('sap') + ' earned this ' + W_('season') + ' (you are at ' + fmt(garden.runLifetime || 0) + '). Every point after that costs more: the next one arrives at ' + fmt(nextAt) + '.';
   if (!armed.prestige) $('prestige').textContent = W_('prestige');
   $('prestige').disabled = gain < 1;
   const perksEl = $('almanac-perks'); perksEl.innerHTML = '';
@@ -286,8 +291,8 @@ function renderAlmanac() {
     const row = document.createElement('div'); row.className = 'upgrade' + (owned ? ' owned' : '');
     const icon = document.createElement('div'); icon.className = 'icon'; icon.textContent = owned ? '✅' : '🔒'; row.appendChild(icon);
     const text = document.createElement('div'); text.className = 'text';
-    const name = document.createElement('div'); name.className = 'name'; name.textContent = p.name;
-    const desc = document.createElement('div'); desc.className = 'desc'; desc.textContent = p.desc;
+    const name = document.createElement('div'); name.className = 'name'; name.textContent = perkName(p);
+    const desc = document.createElement('div'); desc.className = 'desc'; desc.textContent = p.desc();
     text.appendChild(name); text.appendChild(desc); row.appendChild(text);
     const btn = document.createElement('button'); btn.textContent = owned ? 'Owned' : p.cost + ' point' + (p.cost === 1 ? '' : 's'); btn.disabled = owned || pts < p.cost;
     btn.addEventListener('click', () => {
@@ -295,7 +300,7 @@ function renderAlmanac() {
       claimWriter();
       garden.legacy -= p.cost; garden.legacySpent = (garden.legacySpent || 0) + p.cost; garden.perks[p.id] = true;
       applyStartPerks();
-      recordEvent('legacy perk: ' + p.name, 0); pushTicker('legacy perk: ' + p.name.toLowerCase(), 'you');
+      recordEvent('legacy perk: ' + perkName(p), 0); pushTicker('legacy perk: ' + perkName(p).toLowerCase(), 'you');
       saveJSON(SAVE_KEY, garden); shopSig = ''; renderAlmanac(); updateHud();
     });
     row.appendChild(btn); perksEl.appendChild(row);
@@ -306,14 +311,14 @@ function renderAlmanac() {
     const row = document.createElement('div'); row.className = 'upgrade' + (when ? ' owned' : '');
     const icon = document.createElement('div'); icon.className = 'icon'; icon.textContent = when ? '🏅' : '·'; row.appendChild(icon);
     const text = document.createElement('div'); text.className = 'text';
-    const name = document.createElement('div'); name.className = 'name'; name.textContent = a.name;
-    const desc = document.createElement('div'); desc.className = 'desc'; desc.textContent = a.desc + (when ? ' Unlocked ' + new Date(when).toLocaleDateString() + '.' : '');
+    const name = document.createElement('div'); name.className = 'name'; name.textContent = achName(a);
+    const desc = document.createElement('div'); desc.className = 'desc'; desc.textContent = a.desc() + (when ? ' Unlocked ' + new Date(when).toLocaleDateString() + '.' : '');
     text.appendChild(name); text.appendChild(desc); row.appendChild(text); achEl.appendChild(row);
   }
   const runs = garden.runs;
   $('almanac-runs').innerHTML = runs.length
-    ? '<tr><th>season</th><th>started</th><th>length</th><th>' + esc(W_('sap')) + '</th><th>' + esc(W_('seeds')) + '</th><th>legacy</th></tr>' + runs.map((r, i) => { const mins = Math.round((r.ended - r.started) / 60000); return '<tr><td>' + (i + 1) + '</td><td>' + new Date(r.started).toLocaleDateString() + '</td><td>' + (mins >= 60 ? Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm' : mins + 'm') + '</td><td>' + fmt(r.lifetime) + '</td><td>' + r.seeds + '</td><td>+' + r.legacy + '</td></tr>'; }).join('')
-    : '<tr><td>No season finished yet. This one has run ' + Math.round((Date.now() - (garden.runStart || garden.born)) / 3600000) + ' hours of wall-clock time.</td></tr>';
+    ? '<tr><th>' + esc(W_('season')) + '</th><th>started</th><th>length</th><th>' + esc(W_('sap')) + '</th><th>' + esc(W_('seeds')) + '</th><th>legacy</th></tr>' + runs.map((r, i) => { const mins = Math.round((r.ended - r.started) / 60000); return '<tr><td>' + (i + 1) + '</td><td>' + new Date(r.started).toLocaleDateString() + '</td><td>' + (mins >= 60 ? Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm' : mins + 'm') + '</td><td>' + fmt(r.lifetime) + '</td><td>' + r.seeds + '</td><td>+' + r.legacy + '</td></tr>'; }).join('')
+    : '<tr><td>No ' + esc(W_('season')) + ' finished yet. This one has run ' + Math.round((Date.now() - (garden.runStart || garden.born)) / 3600000) + ' hours of wall-clock time.</td></tr>';
 }
 const SOURCE_COLORS = { click: '#6fd38a', crit: '#ffcb5c', window: '#ff8f4d', trickle: '#5aa9ff', burst: '#c7b3ff', shoo: '#b98b5a', bird: '#9ad9a8' };
 const ledger = Object.assign({ totals: {}, minutes: [], events: [], spent: 0, seeds: 0 }, loadJSON(LEDGER_KEY) || {});
@@ -3827,7 +3832,9 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     lanterns[s.id] = { x: bx, y: gy + gh / 2, w: gw, h: gh + 12 * k, left, pct: Math.round(100 * contextFraction(s)), night: Boolean(s.night) };
   }
   THEMES.wizard = {
-    id: 'wizard', name: 'Wizard tower', hat: 'wizard', icon: '🔮', price: 10000000, firefly: 'rgba(180,230,255,',
+    id: 'wizard', name: 'Wizard tower', hat: 'wizard',
+    perkNames: { headstart: 'Apprentice wand', deeproots: 'Rune memory', longlight: 'Long enchantment', patientsoil: 'Patient ether', secondwind: 'Mana surge', greenkey: 'Observatory key' },
+    achNames: { clicks1k: 'Deft wand', harvests10: 'Ten ascents', clicks100k: 'Archmage' }, icon: '🔮', price: 10000000, firefly: 'rgba(180,230,255,',
     blurb: 'A tower that gains a floor per stage on a rune-carved plinth. Mana, runes, ether, starlight, and ley power; wands and grimoires in the shop; imps, wisps, an observatory, and apprentices in pointy hats.',
     words: {
       title: '🔮 Tower of Claude', place: 'tower grounds', sap: 'mana', seed: 'rune', seeds: 'runes', plant: 'tower', plants: 'towers',
@@ -3835,7 +3842,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       water: 'ether', light: 'starlight', nutrients: 'ley power', sunbeam: 'arcane beam', puddle: 'mana pool', greenhouse: 'observatory',
       crowLanded: 'an imp appeared', crowTitle: 'An imp', birdTitle: 'A passing spirit', birdFloat: '👻 +',
       beeTitle: 'A wisp', beeTip: 'Click it to bind it to the tower for a bonus before it drifts off.', beeVisit: 'a wisp is circling', beeFloat: '✨ bound +',
-      shopTitle: 'Arcane shop', shopTab: 'Grounds', prestige: 'New age',
+      shopTitle: 'Arcane shop', shopTab: 'Grounds', prestige: 'New age', season: 'age',
       mailboxTitle: 'Owl post', mailboxEmpty: 'Scrolls arrive here only when Claude needs an answer from you.', deskTitle: 'Lectern', gateTitle: 'The iron gate', lanternTitle: 'Mana vial of', tend: 'click to channel mana',
       starTitle: 'A falling star', butterflyTitle: 'A sprite', catTitle: 'A cat', snailTitle: 'A slime', ladybugTitle: 'A scarab',
       lanternOut: 'Dark while the context is compacted. The crystal wakes when compaction finishes.', lanternLeft: 'of the mana left before compaction is due.', lanternLow: 'The crystal is flickering. Let auto-compact run or type /compact in the app.',
@@ -4153,7 +4160,9 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     lanterns[s.id] = { x: bx, y: gy + gh / 2, w: gw, h: gh + 12 * k, left, pct: Math.round(100 * contextFraction(s)), night: Boolean(s.night) };
   }
   THEMES.space = {
-    id: 'space', name: 'Orbit', hat: 'space', icon: '🪐', price: 10000000, firefly: 'rgba(120,220,255,',
+    id: 'space', name: 'Orbit', hat: 'space',
+    perkNames: { headstart: 'Launch kit', deeproots: 'Core memory', longlight: 'Long flare', patientsoil: 'Patient ice', secondwind: 'Second burn', greenkey: 'Station key' },
+    achNames: { clicks1k: 'Steady scoop', harvests10: 'Ten collapses', clicks100k: 'Astronaut' }, icon: '🪐', price: 10000000, firefly: 'rgba(120,220,255,',
     blurb: 'A planet that grows from dust to a ringed giant on a launch pad above a cratered moon. Stardust, cores, ice, starlight, and minerals; drills and tractor beams in the shop; drones, probes, a space station, and helpers in helmets.',
     words: {
       title: '🪐 Orbit of Claude', place: 'station', sap: 'stardust', seed: 'core', seeds: 'cores', plant: 'planet', plants: 'planets',
@@ -4161,7 +4170,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       water: 'ice', light: 'starlight', nutrients: 'minerals', sunbeam: 'solar flare', puddle: 'comet dust', greenhouse: 'space station',
       crowLanded: 'a rogue drone arrived', crowTitle: 'A rogue drone', birdTitle: 'A passing comet', birdFloat: '☄ +',
       beeTitle: 'A probe', beeTip: 'Click it to dock the probe for a bonus before it drifts off.', beeVisit: 'a probe is orbiting', beeFloat: '🛰 docked +',
-      shopTitle: 'Orbital supply', shopTab: 'Station', prestige: 'Big bang',
+      shopTitle: 'Orbital supply', shopTab: 'Station', prestige: 'Big bang', season: 'cycle',
       stages: ['dust', 'pebbles', 'planetesimal', 'protoplanet', 'rocky world', 'atmosphere', 'oceans', 'life', 'city lights', 'glowing', 'ringed', 'gas giant', 'ancient', 'mythic'],
       mailboxTitle: 'Comms dish', mailboxEmpty: 'Transmissions arrive here only when Claude needs an answer from you.', deskTitle: 'Console', gateTitle: 'The airlock', lanternTitle: 'Reactor of', tend: 'click to gather stardust',
       starTitle: 'A meteor', butterflyTitle: 'A satellite', catTitle: 'A cat', snailTitle: 'A slow rover', ladybugTitle: 'A bug-bot',
@@ -4474,7 +4483,9 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     lanterns[s.id] = { x: bx, y: py + ph / 2, w: pw, h: ph + 12 * k, left, pct: Math.round(100 * contextFraction(s)), night: Boolean(s.night) };
   }
   THEMES.dino = {
-    id: 'dino', name: 'Jurassic', hat: 'dino', icon: '🦖', price: 10000000,
+    id: 'dino', name: 'Jurassic', hat: 'dino',
+    perkNames: { headstart: 'First tools', deeproots: 'Egg memory', longlight: 'Long sun', patientsoil: 'Patient valley', secondwind: 'Second wind', greenkey: 'Cave key' },
+    achNames: { clicks1k: 'Quick stick', harvests10: 'Ten nests', clicks100k: 'Elder' }, icon: '🦖', price: 10000000,
     blurb: 'A dinosaur that hatches from an egg and grows up in a nest under a smoking volcano. Food, eggs, water, sunshine, and ferns; spears and stone axes in the shop; pterosaurs, beetles, a cave, a campfire, and helpers with feathers.',
     words: {
       title: '🦖 Jurassic Claude', place: 'valley', sap: 'food', seed: 'egg', seeds: 'eggs', plant: 'dinosaur', plants: 'dinosaurs',
@@ -4482,7 +4493,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       water: 'water', light: 'sunshine', nutrients: 'ferns', sunbeam: 'sunbeam', puddle: 'mud bath', greenhouse: 'cave',
       crowLanded: 'a pterosaur swooped in', crowTitle: 'A pterosaur', birdTitle: 'A passing dragonfly', birdFloat: '🪰 +',
       beeTitle: 'A beetle', beeTip: 'Click it to feed it to the dinosaur for a bonus before it scuttles off.', beeVisit: 'a beetle is crawling near', beeFloat: '🪲 fed +',
-      shopTitle: 'Tribe camp', shopTab: 'Camp', prestige: 'Extinction event',
+      shopTitle: 'Tribe camp', shopTab: 'Camp', prestige: 'Extinction event', season: 'era',
       stages: ['egg', 'cracking', 'hatchling', 'juvenile', 'young', 'adult', 'nesting', 'alpha', 'giant', 'glowing', 'enchanted', 'colossal', 'ancient', 'mythic'],
       mailboxTitle: 'Message stone', mailboxEmpty: 'Carved messages arrive here only when Claude needs an answer from you.', deskTitle: 'Carving stone', gateTitle: 'The log gate', lanternTitle: 'Campfire of', tend: 'click to feed',
       starTitle: 'A falling star', butterflyTitle: 'A giant dragonfly', catTitle: 'A cat', snailTitle: 'A snail', ladybugTitle: 'A beetle',
@@ -4773,7 +4784,9 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     lanterns[s.id] = { x: bx, y: gy + gh / 2, w: gw, h: gh + 12 * k, left, pct: Math.round(100 * contextFraction(s)), night: Boolean(s.night) };
   }
   THEMES.reef = {
-    id: 'reef', name: 'Deep reef', hat: 'reef', icon: '🐚', price: 10000000, firefly: 'rgba(120,240,255,',
+    id: 'reef', name: 'Deep reef', hat: 'reef',
+    perkNames: { headstart: 'Diver kit', deeproots: 'Shell memory', longlight: 'Long shaft', patientsoil: 'Patient current', secondwind: 'Second breath', greenkey: 'Wreck key' },
+    achNames: { clicks1k: 'Sure net', harvests10: 'Ten dives', clicks100k: 'Old salt' }, icon: '🐚', price: 10000000, firefly: 'rgba(120,240,255,',
     blurb: 'The sky is water. A coral head grows into a reef with anemones, fish, shoals, and a wreck leaning on it. Pearls, shells, current, light, and plankton; nets and harpoons in the shop; moray eels, cleaner shrimp, a shipwreck, a diving bell, and divers.',
     words: {
       title: '🐚 Reef of Claude', place: 'reef', sap: 'pearls', seed: 'shell', seeds: 'shells', plant: 'reef', plants: 'reefs',
@@ -4781,7 +4794,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       water: 'current', light: 'light', nutrients: 'plankton', sunbeam: 'light shaft', puddle: 'plankton bloom', greenhouse: 'wreck',
       crowLanded: 'a moray eel slid in', crowTitle: 'A moray eel', birdTitle: 'A passing turtle', birdFloat: '🐢 +',
       beeTitle: 'A cleaner shrimp', beeTip: 'Click it to let it clean the reef for a bonus before it darts off.', beeVisit: 'a cleaner shrimp is visiting', beeFloat: '🦐 cleaned +',
-      shopTitle: 'Tide pool market', shopTab: 'Seabed', prestige: 'New tide',
+      shopTitle: 'Tide pool market', shopTab: 'Seabed', prestige: 'New tide', season: 'tide',
       stages: ['larva', 'polyp', 'coral bud', 'coral head', 'colony', 'anemones', 'fish', 'shoals', 'wreck', 'glowing', 'enchanted', 'colossal', 'ancient', 'mythic'],
       mailboxTitle: 'Diving bell', mailboxEmpty: 'Bottles arrive here only when Claude needs an answer from you.', deskTitle: "Ship's wheel", gateTitle: 'The kelp gate', lanternTitle: 'Air tank of', tend: 'click to gather pearls',
       starTitle: 'A shooting star', butterflyTitle: 'A jellyfish', catTitle: 'A cat', snailTitle: 'A sea snail', ladybugTitle: 'A crab',
@@ -5075,7 +5088,9 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     lanterns[s.id] = { x: bx, y: gy + 8 * k, w: gr * 2 + 8 * k, h: by - gy + gr, left, pct: Math.round(100 * contextFraction(s)), night: Boolean(s.night) };
   }
   THEMES.clockwork = {
-    id: 'clockwork', name: 'Clockwork', hat: 'clockwork', icon: '⚙️', price: 10000000, firefly: 'rgba(255,220,120,',
+    id: 'clockwork', name: 'Clockwork', hat: 'clockwork',
+    perkNames: { headstart: 'Starter kit', deeproots: 'Spring memory', longlight: 'Long burst', patientsoil: 'Patient boiler', secondwind: 'Second wind-up', greenkey: 'Workshop key' },
+    achNames: { clicks1k: 'Sure wrench', harvests10: 'Ten teardowns', clicks100k: 'Master engineer' }, icon: '⚙️', price: 10000000, firefly: 'rgba(255,220,120,',
     blurb: 'A brass machine that assembles itself: a boiler, pistons, gears, lamps, a chimney, a bell, and an orrery on top. Cogs, springs, steam, oil, and coal; wrenches and lathes in the shop; rust sprites, sparks, a workshop, a pneumatic tube, a pressure gauge, and wind-up helpers.',
     words: {
       title: '⚙️ Clockwork Claude', place: 'workshop', sap: 'cogs', seed: 'spring', seeds: 'springs', plant: 'machine', plants: 'machines',
@@ -5083,7 +5098,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       water: 'steam', light: 'oil', nutrients: 'coal', sunbeam: 'boiler burst', puddle: 'oil slick', greenhouse: 'workshop',
       crowLanded: 'a rust sprite crept in', crowTitle: 'A rust sprite', birdTitle: 'A passing airship', birdFloat: '🎈 +',
       beeTitle: 'A spark', beeTip: 'Click it to catch the spark for a bonus before it fizzles.', beeVisit: 'a spark is jumping', beeFloat: '⚡ caught +',
-      shopTitle: 'Parts counter', shopTab: 'Factory', prestige: 'Rebuild',
+      shopTitle: 'Parts counter', shopTab: 'Factory', prestige: 'Rebuild', season: 'build',
       stages: ['blueprint', 'frame', 'boiler', 'pistons', 'gears', 'lamps lit', 'chimney', 'bell', 'orrery', 'glowing', 'enchanted', 'colossal', 'ancient', 'mythic'],
       mailboxTitle: 'Pneumatic tube', mailboxEmpty: 'Capsules arrive here only when Claude needs an answer from you.', deskTitle: 'Drafting table', gateTitle: 'The iron door', lanternTitle: 'Pressure gauge of', tend: 'click to turn the crank',
       starTitle: 'A shooting star', butterflyTitle: 'A clockwork moth', catTitle: 'A cat', snailTitle: 'A wind-up snail', ladybugTitle: 'A tin beetle',
@@ -5369,7 +5384,9 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     lanterns[s.id] = { x: bx + 4 * k, y: oy + oh / 2, w: ow + 14 * k, h: oh + 6 * k, left, pct: Math.round(100 * contextFraction(s)), night: Boolean(s.night) };
   }
   THEMES.bakery = {
-    id: 'bakery', name: 'Bakery', hat: 'bakery', icon: '🎂', price: 10000000, firefly: 'rgba(255,240,200,',
+    id: 'bakery', name: 'Bakery', hat: 'bakery',
+    perkNames: { headstart: 'Starter dough', deeproots: 'Recipe memory', longlight: 'Long bake', patientsoil: 'Patient proof', secondwind: 'Second rise', greenkey: 'Pantry key' },
+    achNames: { clicks1k: 'Steady spoon', harvests10: 'Ten servings', clicks100k: 'Head baker' }, icon: '🎂', price: 10000000, firefly: 'rgba(255,240,200,',
     blurb: 'Inside a bakery: a cake that gains a tier per stage on a cake stand, candles, frosting flowers, and a sugar star at mythic. Sugar, recipes, flour, heat, and butter; spoons and whisks in the shop; ants, wasps, a pantry, an order box, and helpers in chef hats.',
     words: {
       title: '🎂 Bakery of Claude', place: 'bakery', sap: 'sugar', seed: 'recipe', seeds: 'recipes', plant: 'cake', plants: 'cakes',
@@ -5377,7 +5394,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       water: 'flour', light: 'heat', nutrients: 'butter', sunbeam: 'oven glow', puddle: 'spilled cream', greenhouse: 'pantry',
       crowLanded: 'ants got in', crowTitle: 'Ants', birdTitle: 'A passing pigeon', birdFloat: '🐦 +',
       beeTitle: 'A wasp', beeTip: 'Click it to shoo the wasp for a bonus before it lands on the cake.', beeVisit: 'a wasp is circling', beeFloat: '🐝 shooed +',
-      shopTitle: 'Pastry counter', shopTab: 'Kitchen', prestige: 'New menu',
+      shopTitle: 'Pastry counter', shopTab: 'Kitchen', prestige: 'New menu', season: 'menu',
       stages: ['batter', 'baking', 'sponge', 'one tier', 'two tiers', 'candles', 'frosted', 'three tiers', 'flowers', 'glowing', 'enchanted', 'colossal', 'ancient', 'mythic'],
       mailboxTitle: 'Order box', mailboxEmpty: 'Orders arrive here only when Claude needs an answer from you.', deskTitle: 'Order pad', gateTitle: 'The shop door', lanternTitle: 'Oven of', tend: 'click to stir',
       starTitle: 'A shooting star', butterflyTitle: 'A butterfly', catTitle: 'A cat', snailTitle: 'A snail', ladybugTitle: 'A ladybug',
