@@ -37,6 +37,7 @@ const THEMES = {};
 const themeShared = {};   // helpers that themes lend each other
 // Themed plants scale with the room above the planter so a grown one fills the screen.
 function themeRoom(r) { return Math.max(1, Math.min(1.7, (r.y - 90) / 340)); }
+function fitK(r, k, unitsAtK1) { return k * Math.max(0.3, Math.min(1, Math.max(120, r.y - 84) / (unitsAtK1 * k))); }
 let theme = { id: 'garden', name: 'Garden', icon: '🌱', price: 0, blurb: 'The plant in its pot: sap, seeds, water, light, and nutrients. Always yours.', words: GARDEN_WORDS, items: {}, species: {}, draw: {} };
 const themeOwned = (id) => id === 'garden' || (garden.levels['theme:' + id] || 0) > 0;
 THEMES.garden = theme;
@@ -4010,10 +4011,11 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     _t = t;
     const dl = daylight();
     const sp = speciesOf(plant), si = plantStage(plant), prog = plantProgress(plant);
-    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.25 : 1) * themeRoom(r);
+    const radUnit = 10 + Math.min(si, 12) * 5.5 + prog * 4;
+    const k = fitK(r, Math.max(0.6, r.scale) * (si >= 11 ? 1.25 : 1) * themeRoom(r), radUnit * 2.7 + 30);
     const cx = r.cx;
     const shape = sp.shape;
-    const rad = (8 + Math.min(si, 12) * 4 + prog * 3) * k;
+    const rad = radUnit * k;
     const cy = r.y - 24 * k - rad;
     const base = shape === 'cactus' ? [210, 160, 90] : shape === 'fronds' ? [190, 230, 250] : shape === 'moon' ? [200, 200, 215] : shape === 'stem' ? [240, 200, 90] : shape === 'spikes' ? [150, 110, 200] : shape === 'bonsai' ? [170, 150, 140] : sp.thorns ? [140, 70, 50] : [120, 110, 130];
     ctx.save(); ctx.globalAlpha = 1 - wilt * 0.6;
@@ -4313,9 +4315,10 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     if (!plant) return;
     const dl = daylight();
     const sp = speciesOf(plant), si = plantStage(plant), prog = plantProgress(plant);
-    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.3 : si >= 8 ? 1.15 : 1) * themeRoom(r);
-    const cx = r.cx, base = r.y - 2;
     const shape = sp.shape;
+    const sizeUnit = 12 + Math.min(si, 12) * 4.5 + prog * 3;
+    const k = fitK(r, Math.max(0.6, r.scale) * (si >= 11 ? 1.3 : si >= 8 ? 1.15 : 1) * themeRoom(r), sizeUnit * (shape === 'stem' ? 3.9 : 2.1) + 20);
+    const cx = r.cx, base = r.y - 2;
     const skin = shape === 'cactus' ? [110, 100, 70] : shape === 'fronds' ? [230, 170, 60] : shape === 'moon' ? [90, 80, 100] : shape === 'stem' ? [90, 130, 90] : shape === 'spikes' ? [160, 110, 150] : shape === 'bonsai' ? [120, 120, 80] : sp.thorns ? [70, 120, 60] : [90, 150, 80];
     ctx.save(); ctx.globalAlpha = 1 - wilt * 0.6;
     if (si <= 1) {
@@ -4326,7 +4329,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       if (si === 1) { ctx.strokeStyle = '#3b2a12'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(cx - ew * 0.5, ey); ctx.lineTo(cx - ew * 0.2, ey - eh * 0.2 - prog * 4); ctx.lineTo(cx + ew * 0.1, ey + eh * 0.1); ctx.lineTo(cx + ew * 0.5, ey - eh * 0.15); ctx.stroke(); const wob = Math.sin(t * 8) * (prog > 0.5 ? 2 : 0.6); ctx.translate(wob, 0); }
       ctx.restore(); return;
     }
-    const size = (10 + Math.min(si, 12) * 3.2 + prog * 2) * k;
+    const size = sizeUnit * k;
     const long = shape === 'stem';
     const bw = size * (shape === 'cactus' || shape === 'bonsai' ? 1.5 : 1.3), bh = size * (shape === 'cactus' ? 0.75 : 0.65);
     const legH = size * (long ? 0.9 : 0.6), by = base - legH - bh * 0.5;
@@ -4634,10 +4637,11 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     if (!plant) return;
     const dl = daylight();
     const sp = speciesOf(plant), si = plantStage(plant), prog = plantProgress(plant);
-    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.3 : 1) * themeRoom(r);
+    const sizeUnit = 10 + Math.min(si, 12) * 7 + prog * 5;
+    const k = fitK(r, Math.max(0.6, r.scale) * (si >= 11 ? 1.3 : 1) * themeRoom(r), sizeUnit * 1.6 + 20);
     const cx = r.cx, base = r.y - 4;
     const shape = sp.shape;
-    const size = (8 + Math.min(si, 12) * 5 + prog * 4) * k;
+    const size = sizeUnit * k;
     const tint = shape === 'cactus' ? [240, 150, 60] : shape === 'fronds' ? [200, 240, 255] : shape === 'moon' ? [220, 220, 245] : shape === 'stem' ? [250, 170, 60] : shape === 'spikes' ? [170, 90, 180] : shape === 'bonsai' ? [230, 200, 120] : sp.thorns ? [230, 120, 90] : [220, 140, 150];
     const rs = seededRandom(hashStr(sid));
     ctx.save(); ctx.globalAlpha = 1 - wilt * 0.6;
@@ -4941,12 +4945,13 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     if (!plant) return;
     const dl = daylight();
     const sp = speciesOf(plant), si = plantStage(plant), prog = plantProgress(plant);
-    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.25 : 1) * themeRoom(r);
+    const unitAtK1 = 16 + Math.min(si, 12) * 1.6;
+    const k = fitK(r, Math.max(0.6, r.scale) * (si >= 11 ? 1.25 : 1) * themeRoom(r), unitAtK1 * 9.5 + 20);
     const cx = r.cx, base = r.y - 8;
     const shape = sp.shape;
     const metal = shape === 'cactus' ? [90, 84, 86] : shape === 'fronds' ? [200, 225, 235] : shape === 'moon' ? [210, 210, 220] : shape === 'stem' ? [240, 200, 90] : shape === 'spikes' ? [200, 120, 80] : shape === 'bonsai' ? [220, 190, 110] : sp.thorns ? [110, 100, 100] : [215, 170, 70];
     const m = col(metal, dl), md = col(metal.map((c) => c * 0.65), dl), ml = col(metal.map((c) => Math.min(255, c + 40)), dl);
-    const bw = 30 * k, unit = 14 * k;
+    const bw = (28 + Math.min(si, 12) * 1.5) * k, unit = unitAtK1 * k;
     ctx.save(); ctx.globalAlpha = 1 - wilt * 0.6;
     if (si === 0) {
       // a blueprint on the pedestal
@@ -5233,7 +5238,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     if (!plant) return;
     const dl = daylight();
     const sp = speciesOf(plant), si = plantStage(plant), prog = plantProgress(plant);
-    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.3 : 1) * themeRoom(r);
+    const k = fitK(r, Math.max(0.6, r.scale) * (si >= 11 ? 1.3 : 1) * themeRoom(r), (si >= 11 ? 5 : si >= 7 ? 3 : si >= 4 ? 2 : 1) * 27 + 70);
     const cx = r.cx, base = r.y - 6;
     const shape = sp.shape;
     const sponge = shape === 'cactus' ? [120, 70, 40] : shape === 'stem' ? [240, 220, 120] : shape === 'spikes' ? [190, 160, 220] : sp.thorns ? [170, 40, 50] : shape === 'moon' ? [200, 170, 110] : [240, 200, 140];
@@ -5256,12 +5261,12 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     }
     // tiers: one at two, two at four, three at seven, more with age
     const tiers = si >= 11 ? 5 : si >= 7 ? 3 : si >= 4 ? 2 : 1;
-    const tierH = 16 * k, cupcakes = shape === 'bonsai';
+    const tierH = 24 * k, cupcakes = shape === 'bonsai';
     let y = base;
     for (let i = 0; i < tiers; i++) {
-      const tw = (44 - i * 9) * k;
+      const tw = (60 - i * 11) * k;
       if (cupcakes) {
-        for (let c = -i; c <= i; c += 2) { const px = cx + c * 12 * k * 0.9; ctx.fillStyle = col([200, 160, 120], dl); ctx.beginPath(); ctx.moveTo(px - 7 * k, y - tierH); ctx.lineTo(px + 7 * k, y - tierH); ctx.lineTo(px + 5 * k, y); ctx.lineTo(px - 5 * k, y); ctx.closePath(); ctx.fill(); ctx.fillStyle = col(icing, dl); ctx.beginPath(); ctx.arc(px, y - tierH - 2 * k, 7 * k, Math.PI, 0); ctx.fill(); }
+        for (let c = -i; c <= i; c += 2) { const px = cx + c * 16 * k * 0.9; ctx.fillStyle = col([200, 160, 120], dl); ctx.beginPath(); ctx.moveTo(px - 9 * k, y - tierH); ctx.lineTo(px + 9 * k, y - tierH); ctx.lineTo(px + 7 * k, y); ctx.lineTo(px - 7 * k, y); ctx.closePath(); ctx.fill(); ctx.fillStyle = col(icing, dl); ctx.beginPath(); ctx.arc(px, y - tierH - 2 * k, 9 * k, Math.PI, 0); ctx.fill(); }
       } else {
         ctx.fillStyle = col(sponge, dl); ctx.fillRect(cx - tw, y - tierH, tw * 2, tierH);
         ctx.fillStyle = col(sponge.map((c) => c * 0.8), dl); ctx.fillRect(cx - tw, y - tierH * 0.45, tw * 2, 2 * k);
@@ -5272,7 +5277,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     }
     const topY = y + (cupcakes ? 6 * k : 3 * k);
     // the tier in progress rises on top
-    if (prog > 0.1 && tiers < 5 && si >= 2) { ctx.fillStyle = col(sponge, dl, 0.6); ctx.fillRect(cx - (44 - tiers * 9) * k, topY - prog * tierH * 0.5, (44 - tiers * 9) * 2 * k, prog * tierH * 0.5); }
+    if (prog > 0.1 && tiers < 5 && si >= 2) { ctx.fillStyle = col(sponge, dl, 0.6); ctx.fillRect(cx - (60 - tiers * 11) * k, topY - prog * tierH * 0.5, (60 - tiers * 11) * 2 * k, prog * tierH * 0.5); }
     // candles from five, frosting flowers from eight
     if (si >= 5) { const n = Math.min(7, si - 2); for (let i = 0; i < n; i++) { const px = cx + (i - (n - 1) / 2) * 9 * k; ctx.fillStyle = ['#ff8fa3', '#7fd0ff', '#ffe07a', '#b8f28a'][i % 4]; ctx.fillRect(px - 1.5 * k, topY - 14 * k, 3 * k, 14 * k); const flick = 1 + Math.sin(t * 11 + i) * 0.2; const lean = shape === 'stem' ? Math.sign(W * 0.08 + dayFraction() * W * 0.84 - cx) * 2 * k : 0; ctx.fillStyle = 'rgba(255,200,90,0.95)'; ctx.beginPath(); ctx.ellipse(px + lean, topY - 18 * k, 2 * k, 4 * k * flick, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'rgba(255,255,220,0.9)'; ctx.beginPath(); ctx.ellipse(px + lean, topY - 17 * k, 0.8 * k, 2 * k * flick, 0, 0, Math.PI * 2); ctx.fill(); } }
     if (si >= 8 || sp.thorns) { for (let i = 0; i < (si >= 8 ? 6 : 3); i++) { const px = cx + (rs() - 0.5) * 60 * k, py = base - rs() * (tiers * tierH); ctx.fillStyle = sp.thorns ? '#d7263d' : ['#ff8fa3', '#ffb3c6', '#ffd6e0'][i % 3]; for (let p = 0; p < 6; p++) { const a = p * Math.PI / 3 + t * 0.2; ctx.beginPath(); ctx.ellipse(px + Math.cos(a) * 3 * k, py + Math.sin(a) * 3 * k, 2.5 * k, 1.5 * k, a, 0, Math.PI * 2); ctx.fill(); } ctx.fillStyle = '#ffe07a'; ctx.beginPath(); ctx.arc(px, py, 1.5 * k, 0, Math.PI * 2); ctx.fill(); } }
