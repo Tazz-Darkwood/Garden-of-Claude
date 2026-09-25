@@ -29,6 +29,8 @@ const GARDEN_WORDS = {
   crowLanded: 'a crow landed', crowTitle: 'A crow', birdTitle: 'A passing bird', birdFloat: '🐦 +',
   beeTitle: 'A bee', beeTip: 'Click it to pollinate the plant for a bonus before it flies off.', beeVisit: 'a bee is visiting', beeFloat: '🐝 pollinated +',
   shopTitle: 'Garden shop', shopTab: 'Garden', stages: STAGE_NAMES,
+  mailboxTitle: 'Mailbox', mailboxEmpty: 'Letters arrive here only when Claude needs an answer from you.', deskTitle: 'Writing desk', gateTitle: 'The gate', lanternTitle: 'Lantern of', tend: 'click to tend',
+  starTitle: 'A shooting star', butterflyTitle: 'A butterfly', catTitle: 'A cat', snailTitle: 'A snail', ladybugTitle: 'A ladybug',
 };
 const THEMES = {};
 let theme = { id: 'garden', name: 'Garden', icon: '🌱', price: 0, blurb: 'The plant in its pot: sap, seeds, water, light, and nutrients. Always yours.', words: GARDEN_WORDS, items: {}, species: {}, draw: {} };
@@ -1394,7 +1396,7 @@ function updateTip() {
   const lanternSid = hitLantern(hover.x, hover.y);
   if (lanternSid && sessions[lanternSid]) {
     const l = lanterns[lanternSid];
-    head = 'Lantern of ' + sessionLabel(sessions[lanternSid]);
+    head = W_('lanternTitle') + ' ' + sessionLabel(sessions[lanternSid]);
     body = l.night ? 'Out while the context is compacted. It is relit when compaction finishes.'
       : 'Context ' + l.pct + '% full: ' + Math.round(l.left * 100) + '% of the light left before compaction is due.' + (l.left < 0.25 ? '\nIt is guttering. Let auto-compact run or type /compact in the app.' : '');
   } else if (stakeSid && sessions[stakeSid]) {
@@ -1407,7 +1409,7 @@ function updateTip() {
     body = ms ? 'This turn of ' + sessionLabel(s) + ' has run ' + Math.floor(ms / 60000) + ' min ' + Math.floor((ms / 1000) % 60) + ' s. The sand flips every five minutes.' : 'No turn is running. The sand runs while Claude works on a turn.';
   } else if (hitGate(hover.x, hover.y) && !gateSession) {
     const pm = (focused() && focused().permissionMode) || '';
-    head = 'The gate';
+    head = W_('gateTitle');
     body = pm === 'plan' ? 'Plan mode: Claude is working out a plan and will not change anything until you approve it.'
       : pm === 'acceptEdits' ? 'Accept-edits mode: file edits go through, other tools wait at the gate for your permission.'
       : pm === 'default' ? 'Default mode: Claude waits at the gate for your permission before each new kind of tool.'
@@ -1416,10 +1418,10 @@ function updateTip() {
     head = sessionLabel(gateSession) + ' is waiting at the gate';
     body = (gateSession.note || 'Claude needs you') + (gateSession.pendingTool ? '\n' + prettyTool(gateSession.pendingTool.name) + ': ' + gateSession.pendingTool.text : '') + '\n\nAnswer it in the Claude app.';
   } else if (hitMailbox(hover.x, hover.y)) {
-    head = 'Mailbox'; body = unread ? unread + ' letter' + (unread === 1 ? '' : 's') + ' waiting for an answer' : 'Letters arrive here only when Claude needs an answer from you.';
+    head = W_('mailboxTitle'); body = unread ? unread + ' letter' + (unread === 1 ? '' : 's') + ' waiting for an answer' : W_('mailboxEmpty');
   } else if (hitDesk(hover.x, hover.y)) {
     const st = deskState();
-    head = 'Writing desk';
+    head = W_('deskTitle');
     body = st.mode === 'ready' ? 'Claude is standing by. Click to write to ' + sessionLabel(st.s) + '.'
       : st.mode === 'queue' ? 'Claude is busy in ' + sessionLabel(st.s) + '. Click to leave a note for when this turn ends.' + (queuedNotes[st.s.id] ? '\nA note is already waiting.' : '')
       : st.mode === 'later' ? 'Claude is idle in the app, and only the app can start a new turn. A note left here goes in with your next app message.' + (queuedNotes[st.s.id] ? '\nA note is already waiting.' : '')
@@ -1432,7 +1434,7 @@ function updateTip() {
     head = W_('beeTitle'); body = W_('beeTip');
   } else if (hitAmbient(hover.x, hover.y) >= 0) {
     const a = ambient[hitAmbient(hover.x, hover.y)];
-    head = a.kind === 'star' ? 'A shooting star' : a.kind === 'butterfly' ? 'A butterfly' : a.kind === 'cat' ? 'A cat' : a.kind === 'snail' ? 'A snail' : 'A ladybug';
+    head = W_(a.kind === 'star' ? 'starTitle' : a.kind === 'butterfly' ? 'butterflyTitle' : a.kind === 'cat' ? 'catTitle' : a.kind === 'snail' ? 'snailTitle' : 'ladybugTitle');
     body = a.kind === 'star' ? 'Quick, click to make a wish.' : a.kind === 'cat' ? 'Click to pet it. The first pet of a visit pays.' : a.kind === 'snail' ? 'In no hurry. Click it for a small bonus.' : 'Click it for a small bonus.';
   } else {
     const sid = hitPlanter(hover.x, hover.y);
@@ -1442,7 +1444,7 @@ function updateTip() {
       const sp = speciesOf(p);
       head = sessionLabel(s) + ' · ' + speciesName(sp) + ' (' + RARITY[sp.rarity].name.toLowerCase() + ') · ' + stageName(plantStage(p));
       const wait = nextStageIn(p);
-      body = speciesBlurb(sp) + '\nyield ×' + yieldMult(p).toFixed(1) + ' · ' + fmt(p.sap) + ' ' + W_('sap') + ' drawn · meters ×' + meterFactor(p).toFixed(2) + (wm.m > 1 ? ' · ' + wm.why + ' ×' + wm.m : '') + (wait != null ? '\nnext stage in ' + Math.floor(wait / 60) + 'm ' + (wait % 60) + 's' : '\nnot growing: meters too low') + '\nclick to tend';
+      body = speciesBlurb(sp) + '\nyield ×' + yieldMult(p).toFixed(1) + ' · ' + fmt(p.sap) + ' ' + W_('sap') + ' drawn · meters ×' + meterFactor(p).toFixed(2) + (wm.m > 1 ? ' · ' + wm.why + ' ×' + wm.m : '') + (wait != null ? '\nnext stage in ' + Math.floor(wait / 60) + 'm ' + (wait % 60) + 's' : '\nnot growing: meters too low') + '\n' + W_('tend');
     }
   }
   if (!head) { tip.className = 'hidden'; return; }
@@ -3625,6 +3627,8 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       crowLanded: 'an imp appeared', crowTitle: 'An imp', birdTitle: 'A passing spirit', birdFloat: '👻 +',
       beeTitle: 'A wisp', beeTip: 'Click it to bind it to the tower for a bonus before it drifts off.', beeVisit: 'a wisp is circling', beeFloat: '✨ bound +',
       shopTitle: 'Arcane shop', shopTab: 'Grounds',
+      mailboxTitle: 'Owl post', mailboxEmpty: 'Scrolls arrive here only when Claude needs an answer from you.', deskTitle: 'Lectern', gateTitle: 'The iron gate', lanternTitle: 'Lantern of', tend: 'click to channel mana',
+      starTitle: 'A falling star', butterflyTitle: 'A sprite', catTitle: 'A cat', snailTitle: 'A slime', ladybugTitle: 'A scarab',
       stages: ['foundation', 'cellar', 'ground floor', 'first floor', 'second floor', 'lit windows', 'crystal spire', 'floating stones', 'storm ring', 'glowing', 'enchanted', 'colossal', 'ancient', 'mythic'],
     },
     items: {
