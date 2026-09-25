@@ -2080,45 +2080,53 @@ const lanterns = {};
 function drawLantern(r, s, t) {
   if (!s) return;
   const dl = daylight();
-  const sx = r.x + r.w - 14, sy = r.y - 34;
   const left = s.night ? 0 : Math.max(0, Math.min(1, 1 - contextFraction(s) / compactAt));
-  ctx.fillStyle = col([122, 84, 51], dl); ctx.fillRect(sx - 2, sy - 38, 4, 28); ctx.fillRect(sx - 2, sy - 38, 18, 3);
-  const hx = sx + 14, hy = sy - 35;
-  const swing = Math.sin(t * 1.6 + r.x * 0.01) * 0.04 * (1 + weather.wind * 4);
-  ctx.save(); ctx.translate(hx, hy); ctx.rotate(swing);
+  // standing on the ground against the left side of the pot
+  const k = Math.max(0.8, Math.min(1.3, r.scale || 1));
+  const bx = r.x - 16 * k, by = r.y + r.h;            // base centre on the ground
+  const gw = 22 * k, gh = 32 * k;                      // glass
+  const gx = bx - gw / 2, gy = by - 5 * k - gh;
+  shadow(bx + 4, by + 2, gw + 14, 3, 0.2);
   const metal = col([62, 58, 64], dl), metalDark = col([44, 42, 48], dl);
-  ctx.strokeStyle = metal; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 3, 3, 0, Math.PI * 2); ctx.stroke();
-  ctx.fillStyle = metal; ctx.beginPath(); ctx.moveTo(-7.5, 10); ctx.lineTo(7.5, 10); ctx.lineTo(4, 6); ctx.lineTo(-4, 6); ctx.closePath(); ctx.fill();
-  const gx = -5.5, gy = 10, gw = 11, gh = 16;
-  ctx.fillStyle = 'rgba(255,250,230,' + (0.16 + 0.12 * dl).toFixed(2) + ')'; ctx.beginPath(); ctx.roundRect(gx, gy, gw, gh, 2); ctx.fill();
-  const oilH = gh * 0.42 * left;
-  ctx.fillStyle = 'rgba(232,160,48,0.85)'; ctx.fillRect(gx + 1, gy + gh - 1 - oilH, gw - 2, oilH);
+  // base and feet
+  ctx.fillStyle = metal; ctx.beginPath(); ctx.roundRect(gx - 3, by - 6 * k, gw + 6, 6 * k, 2); ctx.fill();
+  // glass, tinted by what is behind it
+  ctx.fillStyle = 'rgba(255,250,230,' + (0.16 + 0.12 * dl).toFixed(2) + ')'; ctx.beginPath(); ctx.roundRect(gx, gy, gw, gh, 3); ctx.fill();
+  // oil: the level is the context that is left
+  const oilH = (gh - 4) * 0.5 * left;
+  ctx.fillStyle = 'rgba(232,160,48,0.88)'; ctx.beginPath(); ctx.roundRect(gx + 2, gy + gh - 2 - oilH, gw - 4, oilH, [0, 0, 2, 2]); ctx.fill();
+  ctx.fillStyle = 'rgba(255,220,140,0.5)'; ctx.fillRect(gx + 2, gy + gh - 2 - oilH, gw - 4, 1.5 * k);
+  // wick and flame
+  const wx = gx + gw / 2, wy = gy + gh - 2 - oilH;
+  ctx.fillStyle = metalDark; ctx.fillRect(wx - 0.8 * k, wy - 4 * k, 1.6 * k, 4 * k);
   if (left > 0) {
     const low = left < 0.25;
     const jitter = (low ? 0.7 : 0.15) * (Math.sin(t * 23 + r.x) * 0.5 + Math.sin(t * 37 + r.x) * 0.5);
-    const fr = 1.6 + 3.2 * left + jitter;
-    const fy = gy + gh - 2 - oilH - fr;
+    const fr = (3 + 6 * left + jitter) * k;
+    const fy = wy - 4 * k - fr;
     const c = mix([255, 240, 190], [255, 120, 50], 1 - left);
-    ctx.fillStyle = rgb(c, 0.95); ctx.beginPath(); ctx.ellipse(0, fy, fr * 0.6, fr, 0, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.ellipse(0, fy + fr * 0.3, fr * 0.3, fr * 0.5, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = rgb(c, 0.95); ctx.beginPath(); ctx.ellipse(wx, fy, fr * 0.55, fr, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.beginPath(); ctx.ellipse(wx, fy + fr * 0.35, fr * 0.28, fr * 0.5, 0, 0, Math.PI * 2); ctx.fill();
   } else {
     ctx.fillStyle = 'rgba(120,120,130,0.35)';
-    for (let k = 0; k < 3; k++) { const ph = (t * 0.6 + k * 0.33) % 1; ctx.beginPath(); ctx.arc(Math.sin(ph * 6 + k) * 3, gy + 8 - ph * 26, 1.5 + ph * 2.5, 0, Math.PI * 2); ctx.fill(); }
+    for (let i = 0; i < 3; i++) { const ph = (t * 0.6 + i * 0.33) % 1; ctx.beginPath(); ctx.arc(wx + Math.sin(ph * 6 + i) * 4 * k, gy + 6 * k - ph * 34 * k, (1.5 + ph * 3) * k, 0, Math.PI * 2); ctx.fill(); }
   }
-  ctx.strokeStyle = metalDark; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.roundRect(gx, gy, gw, gh, 2); ctx.stroke();
-  ctx.beginPath(); ctx.moveTo(gx + gw / 2, gy); ctx.lineTo(gx + gw / 2, gy + gh); ctx.stroke();
-  ctx.fillStyle = metal; ctx.fillRect(gx - 1, gy + gh, gw + 2, 3);
-  ctx.restore();
+  // frame, cap, and handle
+  ctx.strokeStyle = metalDark; ctx.lineWidth = 1.4 * k; ctx.beginPath(); ctx.roundRect(gx, gy, gw, gh, 3); ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(gx + gw * 0.33, gy); ctx.lineTo(gx + gw * 0.33, gy + gh); ctx.moveTo(gx + gw * 0.67, gy); ctx.lineTo(gx + gw * 0.67, gy + gh); ctx.stroke();
+  ctx.fillStyle = metal; ctx.beginPath(); ctx.moveTo(gx - 3, gy); ctx.lineTo(gx + gw + 3, gy); ctx.lineTo(gx + gw - 3 * k, gy - 6 * k); ctx.lineTo(gx + 3 * k, gy - 6 * k); ctx.closePath(); ctx.fill();
+  ctx.strokeStyle = metal; ctx.lineWidth = 1.6 * k; ctx.beginPath(); ctx.arc(bx, gy - 6 * k, 6 * k, Math.PI, 0); ctx.stroke();
+  // glow on the pot and plant, mostly after dark
   if (left > 0) {
-    const ga = (0.06 + 0.3 * (1 - dl)) * (0.3 + 0.7 * left);
-    const g = ctx.createRadialGradient(hx, hy + 20, 2, hx, hy + 20, 50 + 40 * left);
+    const ga = (0.06 + 0.32 * (1 - dl)) * (0.3 + 0.7 * left);
+    const g = ctx.createRadialGradient(bx, gy + gh * 0.5, 4, bx, gy + gh * 0.5, (70 + 50 * left) * k);
     g.addColorStop(0, 'rgba(255,200,110,' + ga.toFixed(2) + ')'); g.addColorStop(1, 'rgba(255,200,110,0)');
-    ctx.fillStyle = g; ctx.fillRect(hx - 100, hy - 80, 200, 200);
+    ctx.fillStyle = g; ctx.fillRect(bx - 140, gy - 120, 280, 280);
   }
-  lanterns[s.id] = { x: hx, y: hy + 18, left, pct: Math.round(100 * contextFraction(s)), night: Boolean(s.night) };
+  lanterns[s.id] = { x: bx, y: gy + gh / 2, w: gw, h: gh + 12 * k, left, pct: Math.round(100 * contextFraction(s)), night: Boolean(s.night) };
 }
 function hitLantern(x, y) {
-  for (const [sid, l] of Object.entries(lanterns)) { if (!rects[sid]) continue; if (Math.abs(x - l.x) < 12 && Math.abs(y - l.y) < 20) return sid; }
+  for (const [sid, l] of Object.entries(lanterns)) { if (!rects[sid]) continue; if (Math.abs(x - l.x) < l.w / 2 + 6 && Math.abs(y - l.y) < l.h / 2 + 4) return sid; }
   return null;
 }
 
