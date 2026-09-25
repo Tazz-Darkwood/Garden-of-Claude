@@ -145,6 +145,22 @@ assistant message's input plus cached tokens, divided by the model's window
 `GARDEN_CONTEXT_WINDOW`). Compaction is due at 90% of the window by default
 (`GARDEN_COMPACT_AT`). Compaction ends with a brief flash of daylight.
 
+## What else the garden shows
+
+- **Session title.** The name tag on each pot carries the session's title from
+  Claude Code when it has one, otherwise the folder name.
+- **Helper gardeners.** Each running subagent is a small gardener raking
+  beside the planter; it leaves when the agent finishes.
+- **Celebrations.** A shell command that commits throws confetti over the
+  planter, a push sends up fireworks, and a test run that passes opens a
+  sunbeam (a failing one lands a crow like any failed tool).
+- **The gate and the permission mode.** The gate stands open in auto mode.
+  In default or accept-edits mode it is closed with a latch, because Claude
+  will stop there to ask; in plan mode it wears a "planning" sign. Hover it.
+- **Rings on the pot.** One ring per compaction the session has lived through.
+- **The hourglass** by the desk runs while a turn is in progress, flips every
+  five minutes, and shows the turn's elapsed time underneath. Hover it.
+
 ## Planters, stakes, and the gate
 
 Each live session gets its own planter, labelled with the project folder and a

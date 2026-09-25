@@ -394,7 +394,7 @@ function prettyTool(t) {
   }
   return t;
 }
-function sessionLabel(s) { return (s && (base(s.cwd) || s.id.slice(0, 6))) || '?'; }
+function sessionLabel(s) { return (s && ((s.title && oneLine(s.title, 26)) || base(s.cwd) || s.id.slice(0, 6))) || '?'; }
 function sessionName(ev) {
   const s = sessions[ev.session_id];
   return s ? sessionLabel(s) : (base(ev.cwd) || (ev.session_id || '').slice(0, 6) || '?');
@@ -594,6 +594,7 @@ function ingest(ev, quiet) {
     setActivity(who + ' · ' + label + (c.text && c.text !== ev.tool_name && c.text !== label.split(': ').pop() ? ' · ' + c.text : ''));
     if (!quiet && (c.kind === 'cloud' || c.kind === 'bird')) fly((c.kind === 'cloud' ? 'helper: ' : '') + c.text, TAG_COLORS[c.kind === 'cloud' ? 'agent' : 'web']);
   } else if (name === 'PostToolUse') {
+    if (!quiet && sid && /^(Bash|PowerShell)$/.test(ev.tool_name || '')) celebrateCommand(sid, (ev.tool_input && ev.tool_input.command) || '');
     const s = ev.summary;
     if (s) {
       pushTicker(who + ' · ' + s.text, s.icon === 'fail' ? 'alert' : '', s.detail);
@@ -1345,6 +1346,17 @@ function updateTip() {
     const s = sessions[stakeSid];
     const prompt = s.prompt || (plants[stakeSid] && plants[stakeSid].prompt) || '';
     head = 'You asked ' + sessionLabel(s); body = prompt ? oneLine(prompt, 600) : 'no prompt seen yet this session';
+  } else if (hitHourglass(hover.x, hover.y)) {
+    const s = focused(); const ms = turnElapsed(s);
+    head = 'Hourglass';
+    body = ms ? 'This turn of ' + sessionLabel(s) + ' has run ' + Math.floor(ms / 60000) + ' min ' + Math.floor((ms / 1000) % 60) + ' s. The sand flips every five minutes.' : 'No turn is running. The sand runs while Claude works on a turn.';
+  } else if (hitGate(hover.x, hover.y) && !gateSession) {
+    const pm = (focused() && focused().permissionMode) || '';
+    head = 'The gate';
+    body = pm === 'plan' ? 'Plan mode: Claude is working out a plan and will not change anything until you approve it.'
+      : pm === 'acceptEdits' ? 'Accept-edits mode: file edits go through, other tools wait at the gate for your permission.'
+      : pm === 'default' ? 'Default mode: Claude waits at the gate for your permission before each new kind of tool.'
+      : pm ? 'The gate is open: Claude runs tools without asking (' + pm + ' mode).' : 'Nothing is known about the permission mode yet.';
   } else if (hitGate(hover.x, hover.y) && gateSession) {
     head = sessionLabel(gateSession) + ' is waiting at the gate';
     body = (gateSession.note || 'Claude needs you') + (gateSession.pendingTool ? '\n' + prettyTool(gateSession.pendingTool.name) + ': ' + gateSession.pendingTool.text : '') + '\n\nAnswer it in the Claude app.';
@@ -1501,6 +1513,9 @@ function spawnAmbient(kind) {
     case 'cat': { const ltr = Math.random() < 0.5; a.x = ltr ? -40 : W + 40; a.vx = (ltr ? 1 : -1) * 45; a.y = soilY + 34 + Math.random() * 12; a.tx = desk.x + desk.w + 30 + Math.random() * 40; a.state = 'walk'; a.sitFor = 14 + Math.random() * 12; a.coat = [[59, 58, 64], [217, 139, 58], [185, 179, 168], [242, 236, 223]][Math.floor(Math.random() * 4)]; a.purr = 0; a.life = 150; fly('a cat wandered into the garden', '#d9b38c'); break; }
     case 'snail': { if (!r) return; a.sid = foc.id; a.u = Math.random() < 0.5 ? 0.05 : 0.95; a.dir = a.u < 0.5 ? 1 : -1; a.life = 45 + Math.random() * 30; break; }
     case 'owl': a.life = 50 + Math.random() * 40; a.blink = 0; a.look = 0; break;
+    case 'confetti': a.life = 2.6 + Math.random(); a.vy = -120 - Math.random() * 160; a.vx = (Math.random() - 0.5) * 220; a.hue = Math.floor(Math.random() * 360); a.spin = (Math.random() - 0.5) * 12; break;
+    case 'rocket': a.life = 1.1 + Math.random() * 0.4; a.vy = -(H * 0.45) / a.life; a.hue = Math.floor(Math.random() * 360); break;
+    case 'burst': a.life = 1.2 + Math.random() * 0.5; break;
     case 'rainbow': a.life = 16 + Math.random() * 6; a.cx = W * (0.35 + Math.random() * 0.3); a.r = Math.min(W, H) * 0.55; break;
     case 'debris': a.x = -20; a.y = soilY - 20 - Math.random() * H * 0.35; a.vx = 180 + Math.random() * 120; a.vy = (Math.random() - 0.5) * 30; a.life = (W + 60) / a.vx; a.hue = Math.random() < 0.6 ? 100 + Math.random() * 30 : 25 + Math.random() * 20; break;
     default: return;
@@ -1558,6 +1573,9 @@ function tickAmbient(dt, t) {
       case 'snail': a.u += a.dir * 0.006 * dt; if (a.u < 0.02 || a.u > 0.98) a.dir *= -1; break;
       case 'owl': a.blink = Math.max(0, a.blink - dt); if (Math.random() < dt * 0.15) a.blink = 0.2; if (Math.random() < dt * 0.1) a.look = [-1, 0, 1][Math.floor(Math.random() * 3)]; break;
       case 'rainbow': break;
+      case 'confetti': a.vy += 260 * dt; a.vx *= 0.985; a.x += (a.vx + gust) * dt; a.y += a.vy * dt; break;
+      case 'rocket': a.x += Math.sin(a.age * 9 + a.phase) * 10 * dt; a.y += a.vy * dt; if (a.age >= a.life) { for (let k = 0; k < 26; k++) { const ang = (k / 26) * Math.PI * 2, sp = 70 + Math.random() * 90; ambient.push({ kind: 'burst', age: 0, life: 1.2 + Math.random() * 0.5, phase: 0, x: a.x, y: a.y, vx: Math.cos(ang) * sp, vy: Math.sin(ang) * sp, hue: a.hue }); } } break;
+      case 'burst': a.vy += 90 * dt; a.vx *= 0.97; a.vy *= 0.97; a.x += a.vx * dt; a.y += a.vy * dt; break;
       default: break;
     }
   }
@@ -1666,6 +1684,17 @@ function drawAmbient(layer, t) {
       for (let k = 0; k < 7; k++) { const ang = -Math.PI / 2 + (k - 3) * 0.32; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(ang) * 7, Math.sin(ang) * 7); ctx.stroke(); }
       ctx.fillStyle = '#8a7a5a'; ctx.beginPath(); ctx.ellipse(0, 3, 1.2, 2.4, 0, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
+    } else if (a.kind === 'confetti') {
+      ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(a.age * a.spin + a.phase); ctx.globalAlpha = Math.min(1, (a.life - a.age) * 1.5);
+      ctx.fillStyle = 'hsl(' + a.hue + ',85%,60%)'; ctx.fillRect(-3.5, -2, 7, 4);
+      ctx.restore();
+    } else if (a.kind === 'rocket') {
+      ctx.strokeStyle = 'hsla(' + a.hue + ',90%,75%,0.8)'; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(a.x, a.y + 18); ctx.lineTo(a.x, a.y); ctx.stroke();
+      ctx.fillStyle = '#fff8d0'; ctx.beginPath(); ctx.arc(a.x, a.y, 2.5, 0, Math.PI * 2); ctx.fill();
+    } else if (a.kind === 'burst') {
+      const life = Math.max(0, 1 - a.age / a.life);
+      ctx.fillStyle = 'hsla(' + a.hue + ',90%,' + (55 + 30 * life) + '%,' + life.toFixed(2) + ')';
+      ctx.beginPath(); ctx.arc(a.x, a.y, 1.5 + 1.5 * life, 0, Math.PI * 2); ctx.fill();
     } else if (a.kind === 'kite') {
       ctx.save(); ctx.globalAlpha = fade;
       ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(a.ax, a.ay); ctx.quadraticCurveTo((a.ax + a.x) / 2 - 20, (a.ay + a.y) / 2 + 30, a.x, a.y); ctx.stroke();
@@ -2020,6 +2049,12 @@ function drawPlanter(r, s, plant, isFocus) {
   body.addColorStop(0, col(isFocus ? [214, 122, 72] : [200, 112, 66], dl)); body.addColorStop(0.55, col([181, 98, 58], dl)); body.addColorStop(1, col([140, 74, 44], dl));
   ctx.fillStyle = body;
   ctx.beginPath(); ctx.moveTo(x, y); ctx.lineTo(x + w, y); ctx.lineTo(x + w - 12, y + h); ctx.lineTo(x + 12, y + h); ctx.closePath(); ctx.fill();
+  // one ring per compaction this session has lived through
+  const rings = Math.min(6, (s && s.compactions) || 0);
+  if (rings) {
+    ctx.strokeStyle = col([120, 60, 36], dl, 0.55); ctx.lineWidth = 2;
+    for (let i = 0; i < rings; i++) { const yy = y + 14 + i * 7, k = (yy - y) / h; ctx.beginPath(); ctx.moveTo(x + 12 * k + 2, yy); ctx.lineTo(x + w - 12 * k - 2, yy); ctx.stroke(); }
+  }
   // rim
   const rim = ctx.createLinearGradient(x, 0, x + w, 0);
   rim.addColorStop(0, col([226, 140, 88], dl)); rim.addColorStop(1, col([160, 88, 52], dl));
@@ -2136,6 +2171,86 @@ function hitLantern(x, y) {
   return null;
 }
 
+// 2. Something got done: a commit throws confetti over the planter, a push sends up
+// fireworks, and a passing test run opens a sunbeam. The command text is enough.
+function celebrateCommand(sid, command) {
+  const r = rects[sid]; if (!r || !command) return;
+  const cmd = String(command);
+  const isGit = /(^|[\s;&|])git\s/.test(cmd);
+  if (isGit && /\bpush\b/.test(cmd)) {
+    for (let k = 0; k < 3; k++) setTimeout(() => { if (!W) return; ambient.push({ kind: 'rocket', age: 0, life: 1.1 + Math.random() * 0.4, phase: Math.random() * 6, x: r.cx + (Math.random() - 0.5) * 160, y: soilY - 10, vy: 0, hue: Math.floor(Math.random() * 360) }); const a = ambient[ambient.length - 1]; a.vy = -(H * 0.45) / a.life; }, k * 350);
+    fly('pushed: fireworks!', '#ffcb5c');
+  } else if (isGit && /\bcommit\b/.test(cmd)) {
+    for (let k = 0; k < 40; k++) ambient.push({ kind: 'confetti', age: -Math.random() * 0.3, life: 2.6 + Math.random(), phase: Math.random() * 6, x: r.cx + (Math.random() - 0.5) * 40, y: r.y - H * 0.25, vx: (Math.random() - 0.5) * 220, vy: -120 - Math.random() * 160, hue: Math.floor(Math.random() * 360), spin: (Math.random() - 0.5) * 12 });
+    fly('committed: confetti', '#9ad9a8');
+  } else if (/\b(npm|pnpm|yarn|bun)( run)? test\b|\bpytest\b|\bjest\b|\bvitest\b|\bcargo test\b|\bgo test\b|\bnode --test\b|\bdotnet test\b/.test(cmd)) {
+    sunbeams[sid] = Date.now() + sunbeamSeconds() * 1000;
+    fly('tests passed: a sunbeam', '#ffcb5c');
+  }
+}
+
+// 1. Helper gardeners: one per running subagent, working beside the planter until it stops.
+function drawGardeners(r, s, t) {
+  const agents = s && s.agents ? Object.entries(s.agents) : [];
+  if (!agents.length) return;
+  const dl = daylight();
+  agents.slice(0, 4).forEach(([id, ag], i) => {
+    const seed = (id.charCodeAt(0) || 7) + (id.charCodeAt(1) || 3);
+    const gx = r.x + r.w + 22 + i * 26, gy = r.y + r.h;
+    const work = Math.sin(t * 3.2 + seed);
+    shadow(gx, gy + 2, 22, 3, 0.2);
+    ctx.save(); ctx.translate(gx, gy);
+    const shirt = [[86, 130, 92], [120, 96, 150], [170, 110, 70], [90, 110, 150]][seed % 4];
+    ctx.fillStyle = col([70, 60, 80], dl); ctx.fillRect(-5, -12, 4, 12); ctx.fillRect(1, -12, 4, 12);
+    ctx.fillStyle = col(shirt, dl); ctx.beginPath(); ctx.roundRect(-7, -30, 14, 19, 4); ctx.fill();
+    ctx.fillStyle = col([241, 201, 165], dl); ctx.beginPath(); ctx.arc(0, -36, 6, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = col([200, 160, 90], dl); ctx.beginPath(); ctx.ellipse(0, -40, 10, 3, 0, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.roundRect(-5, -47, 10, 8, 2); ctx.fill();
+    // arms and rake, swinging as they work
+    ctx.strokeStyle = col([241, 201, 165], dl); ctx.lineWidth = 3; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(6, -26); ctx.lineTo(14 + work * 3, -18 + work * 2); ctx.stroke();
+    ctx.strokeStyle = col([122, 84, 51], dl); ctx.lineWidth = 2;
+    ctx.beginPath(); ctx.moveTo(14 + work * 3, -18 + work * 2); ctx.lineTo(22 + work * 6, 0); ctx.stroke();
+    ctx.lineWidth = 1.5; for (let k = -1; k <= 1; k++) { ctx.beginPath(); ctx.moveTo(22 + work * 6, 0); ctx.lineTo(22 + work * 6 + k * 4, 4); ctx.stroke(); }
+    ctx.restore();
+    if (ag.type) { ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = '9px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(oneLine(ag.type, 12), gx, gy + 5); }
+  });
+}
+
+// 6. An hourglass by the desk for the running turn: sand runs while Claude works, flips every five minutes.
+const hourglass = { x: 0, y: 0, w: 22, h: 36 };
+function turnElapsed(s) { if (!s || !(s.status === 'working' || s.status === 'needs_you' || s.status === 'limit')) return 0; const from = s.promptAt || s.firstSeen; return from ? Date.now() - from : 0; }
+function drawHourglass(t) {
+  const s = focused();
+  const dl = daylight();
+  hourglass.x = desk.x + desk.w + 16; hourglass.y = soilY;
+  const { x, y, w, h } = hourglass;
+  const ms = turnElapsed(s), running = ms > 0;
+  const frac = running ? (ms % 300000) / 300000 : 0;
+  shadow(x, y + 2, w + 8, 3, 0.18);
+  const wood = col([122, 84, 51], dl);
+  ctx.fillStyle = wood; ctx.fillRect(x - w / 2 - 2, y - h - 4, w + 4, 4); ctx.fillRect(x - w / 2 - 2, y - 4, w + 4, 4);
+  ctx.fillStyle = wood; ctx.fillRect(x - w / 2 - 1, y - h, 2, h); ctx.fillRect(x + w / 2 - 1, y - h, 2, h);
+  const top = y - h, mid = y - h / 2, bot = y - 4;
+  const glass = () => { ctx.beginPath(); ctx.moveTo(x - w / 2 + 2, top); ctx.lineTo(x + w / 2 - 2, top); ctx.lineTo(x + 2, mid); ctx.lineTo(x + w / 2 - 2, bot); ctx.lineTo(x - w / 2 + 2, bot); ctx.lineTo(x - 2, mid); ctx.closePath(); };
+  glass(); ctx.fillStyle = 'rgba(255,250,230,' + (0.16 + 0.12 * dl).toFixed(2) + ')'; ctx.fill();
+  ctx.save(); glass(); ctx.clip();
+  const sand = col([222, 190, 120], dl);
+  ctx.fillStyle = sand;
+  const topH = (h / 2 - 4) * (running ? 1 - frac : 1);
+  ctx.fillRect(x - w / 2, mid - 2 - topH, w, topH);
+  const botH = (h / 2 - 4) * (running ? frac : 0);
+  ctx.beginPath(); ctx.moveTo(x - w / 2, bot); ctx.lineTo(x + w / 2, bot); ctx.lineTo(x + w / 2, bot - botH * 0.6); ctx.lineTo(x, bot - botH); ctx.lineTo(x - w / 2, bot - botH * 0.6); ctx.closePath(); ctx.fill();
+  if (running && anyoneWorking()) { ctx.fillStyle = sand; ctx.fillRect(x - 0.7, mid - 2, 1.4, bot - mid); }
+  ctx.restore();
+  glass(); ctx.strokeStyle = 'rgba(60,50,40,0.6)'; ctx.lineWidth = 1; ctx.stroke();
+  if (running) {
+    const sec = Math.floor(ms / 1000), label = sec >= 60 ? Math.floor(sec / 60) + 'm ' + String(sec % 60).padStart(2, '0') + 's' : sec + 's';
+    ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.font = '600 10px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText(label, x, y + 6);
+  }
+}
+function hitHourglass(x, y) { return Math.abs(x - hourglass.x) < hourglass.w / 2 + 6 && y > hourglass.y - hourglass.h - 8 && y < hourglass.y + 18; }
+
 function drawGate(t) {
   const { x, y, w } = gate;
   const dl = daylight();
@@ -2153,9 +2268,21 @@ function drawGate(t) {
     ctx.fillStyle = wood(0.85); ctx.beginPath(); ctx.moveTo(fx - 3, y - 48); ctx.lineTo(fx, y - 53); ctx.lineTo(fx + 3, y - 48); ctx.closePath(); ctx.fill();
   }
   ctx.fillStyle = woodLight(0.95); ctx.fillRect(x + w + 4, y - 40, W - x - w - 4, 4); ctx.fillRect(x + w + 4, y - 18, W - x - w - 4, 4);
+  const pm = (focused() && focused().permissionMode) || '';
+  const openMode = !pm || pm === 'auto' || pm === 'bypassPermissions';
   ctx.save();
   ctx.translate(x + 3, y);
-  if (paused) {
+  if (!paused && !openMode) {
+    // closed: Claude asks before acting (default or accept-edits), or is planning
+    ctx.fillStyle = woodLight(1);
+    for (let gx = 6; gx < w - 6; gx += 14) ctx.fillRect(gx, -52, 5, 56);
+    ctx.fillRect(0, -40, w - 6, 4); ctx.fillRect(0, -16, w - 6, 4);
+    ctx.fillStyle = wood(0.7); ctx.fillRect(w - 16, -30, 10, 4);
+    if (pm === 'plan') {
+      ctx.fillStyle = col([226, 190, 122], dl); ctx.beginPath(); ctx.roundRect((w - 6) / 2 - 24, -34, 48, 14, 3); ctx.fill();
+      ctx.fillStyle = '#3b2a12'; ctx.font = '600 9px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('planning', (w - 6) / 2, -27);
+    }
+  } else if (paused) {
     ctx.fillStyle = woodLight(1);
     for (let gx = 6; gx < w - 6; gx += 14) ctx.fillRect(gx, -52, 5, 56);
     ctx.fillRect(0, -40, w - 6, 4); ctx.fillRect(0, -16, w - 6, 4);
@@ -2898,6 +3025,7 @@ function draw(t) {
   drawMailbox(t);
   shadow(desk.x + desk.w / 2, desk.y + 4, desk.w + 16, 4, 0.18);
   drawDesk(t);
+  drawHourglass(t);
   const foc = focused();
   const order = liveSessions().sort((a, b) => a.firstSeen - b.firstSeen);
   if (!order.length && placeholderRect) {
@@ -2912,6 +3040,7 @@ function draw(t) {
     drawStake(r, s);
     drawPlant(r, s.id, t + (s.firstSeen % 1000) / 300, plant, s.status === 'needs_you' ? 0.35 : 0);
     drawLantern(r, s, t);
+    drawGardeners(r, s, t);
   }
   drawUpgrades(t);
   drawPests(t);
@@ -2929,7 +3058,7 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).style.display = 'none'; }
-window.__garden = { critters, particles, plants, garden, ambient, spawnAmbient, deskState, openDesk, sessions: () => sessions, holds: () => pendingHolds, holding: () => holding, letters: () => letters, focused, holdRate, hold: (on) => { holding = on && focused() ? { sid: focused().id, x: W / 2, y: H * 0.7, acc: 0 } : null; } };   // debugging handle
+window.__garden = { critters, particles, plants, garden, ambient, spawnAmbient, deskState, openDesk, sessions: () => sessions, holds: () => pendingHolds, holding: () => holding, letters: () => letters, focused, holdRate, celebrateCommand, hourglass, desk, hold: (on) => { holding = on && focused() ? { sid: focused().id, x: W / 2, y: H * 0.7, acc: 0 } : null; } };   // debugging handle
 updateHud();
 requestAnimationFrame(frame);
 })();

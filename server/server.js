@@ -361,7 +361,7 @@ function needsAnswer(final) {
   const paras = final.replace(/\r/g, '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
   const tail = paras.slice(-2).join('\n');
   if (/\?\s*$/.test(tail) || /\?(\s*\n|\s*$)/.test(tail)) return true;
-  return /\b(let me know|tell me|your call|which (one|would|do)|do you want|would you (like|rather|prefer)|should i|want me to|say (the word|go)|reply (from|when|with)|pick one|choose)\b/i.test(tail);
+  return /\b(let me know|tell me|your call|say which|which (one|ones|of these|of those|would|do|you)|what would you like|do you want|would you (like|rather|prefer)|should i|want me to|say (the word|go)|reply (from|when|with)|pick (one|any|which)|choose|and i'll (build|do|make|take|start))\b/i.test(tail);
 }
 
 async function buildLetter(payload) {
@@ -455,6 +455,8 @@ function touchSession(ev) {
   if ((ev.hook_event_name === 'UserPromptSubmit' || ev.hook_event_name === 'PreToolUse') && pending.has(id)) finishHold(id, null);
   const s = state.sessions[id] || (state.sessions[id] = { id, cwd: ev.cwd || '', status: 'idle', firstSeen: Date.now(), note: '' });
   if (ev.cwd) s.cwd = ev.cwd;
+  if (ev.permission_mode) s.permissionMode = ev.permission_mode;
+  if (ev.session_title) s.title = String(ev.session_title).slice(0, 80);
   s.lastSeen = Date.now();
   s.lastEvent = ev.hook_event_name;
   switch (ev.hook_event_name) {
@@ -465,12 +467,13 @@ function touchSession(ev) {
     case 'PreCompact':
       s.night = true; s.note = 'compacting'; break;
     case 'PostCompact':
+      s.compactions = (s.compactions || 0) + 1;
       s.night = false; s.note = '';
       s.context = { tokens: 0, model: (s.context && s.context.model) || '', window: (s.context && s.context.window) || windowFor(''), at: Date.now() };
       s.dawn = Date.now();
       break;
     case 'UserPromptSubmit':
-      s.status = 'working'; s.note = '';
+      s.status = 'working'; s.note = ''; s.agents = {};
       if (typeof ev.prompt === 'string' && ev.prompt.trim()) { s.prompt = ev.prompt.trim().slice(0, 400); s.promptAt = Date.now(); }
       break;
     case 'PostToolUse':
@@ -478,6 +481,9 @@ function touchSession(ev) {
       s.status = 'working'; s.note = ''; s.pendingTool = null; break;
     case 'SubagentStart':
     case 'SubagentStop':
+      s.agents = s.agents || {};
+      if (ev.hook_event_name === 'SubagentStart') s.agents[ev.agent_id || ('a' + Date.now())] = { type: ev.agent_type || '', since: Date.now() };
+      else if (ev.agent_id) delete s.agents[ev.agent_id];
       // Compaction runs a helper agent after the turn is over; only a prompt or a tool call starts a turn.
       if (s.status === 'idle' || s.status === 'your_turn') break;
       s.status = 'working'; s.note = ''; break;
@@ -499,7 +505,7 @@ function touchSession(ev) {
       break;
     }
     case 'Stop':
-      s.status = 'your_turn'; s.note = 'Claude finished its turn'; break;
+      s.status = 'your_turn'; s.note = 'Claude finished its turn'; s.agents = {}; break;
     default:
       break;
   }
