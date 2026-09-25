@@ -1357,8 +1357,8 @@ function updateTip() {
     head = 'A bee'; body = 'Click it to pollinate the plant for a bonus before it flies off.';
   } else if (hitAmbient(hover.x, hover.y) >= 0) {
     const a = ambient[hitAmbient(hover.x, hover.y)];
-    head = a.kind === 'star' ? 'A shooting star' : a.kind === 'butterfly' ? 'A butterfly' : 'A ladybug';
-    body = a.kind === 'star' ? 'Quick, click to make a wish.' : 'Click it for a small bonus.';
+    head = a.kind === 'star' ? 'A shooting star' : a.kind === 'butterfly' ? 'A butterfly' : a.kind === 'cat' ? 'A cat' : a.kind === 'snail' ? 'A snail' : 'A ladybug';
+    body = a.kind === 'star' ? 'Quick, click to make a wish.' : a.kind === 'cat' ? 'Click to pet it. The first pet of a visit pays.' : a.kind === 'snail' ? 'In no hurry. Click it for a small bonus.' : 'Click it for a small bonus.';
   } else {
     const sid = hitPlanter(hover.x, hover.y);
     if (sid && sessions[sid] && plants[sid]) {
@@ -1465,11 +1465,17 @@ function catchCritter(i, x, y) {
 }
 // ---------- ambient life: things that just happen ----------
 // Purely for watching, though a few pay a little if you catch them:
-// butterflies (5 clicks), ladybugs (3 clicks), shooting stars (a wish, 25 clicks).
+// butterflies (5 clicks), ladybugs and snails (3 clicks), shooting stars (a wish, 25
+// clicks), and a cat (8 clicks for the first pet of a visit). Rainbows follow rain,
+// kites need wind, balloons and planes are rare, the owl comes out after dark, and
+// mist lies on the ground while the context is fresh.
 const ambient = [];
-const ambientClocks = { gust: 15 + Math.random() * 30, cloud: 5 + Math.random() * 20, flock: 30 + Math.random() * 40, butterfly: 20 + Math.random() * 30, ladybug: 40 + Math.random() * 60, rabbit: 60 + Math.random() * 90, seeds: 25 + Math.random() * 40, star: 20 + Math.random() * 40, leaffall: 8 + Math.random() * 10 };
+const ambientClocks = { gust: 15 + Math.random() * 30, cloud: 5 + Math.random() * 20, flock: 30 + Math.random() * 40, butterfly: 20 + Math.random() * 30, ladybug: 40 + Math.random() * 60, rabbit: 60 + Math.random() * 90, seeds: 25 + Math.random() * 40, star: 20 + Math.random() * 40, leaffall: 8 + Math.random() * 10,
+  kite: 20 + Math.random() * 40, balloon: 120 + Math.random() * 240, plane: 90 + Math.random() * 180, cat: 60 + Math.random() * 120, snail: 60 + Math.random() * 120, owl: 30 + Math.random() * 60 };
+let rainPeakAt = 0;
 let gustUntil = 0;
 function spawnAmbient(kind) {
+  if (!W || !H) return;   // nothing has been laid out yet
   const foc = focused(); const r = foc && rects[foc.id];
   const a = { kind, age: 0, life: 10, phase: Math.random() * 6 };
   switch (kind) {
@@ -1481,6 +1487,13 @@ function spawnAmbient(kind) {
     case 'seeds': for (let i = 0; i < 6; i++) ambient.push({ kind: 'seed', age: -i * 0.3, life: 14, x: (r ? r.cx : W * 0.4) + (Math.random() - 0.5) * 60, y: soilY - 30 - Math.random() * 40, vx: 12 + Math.random() * 14, vy: -6 - Math.random() * 6, phase: Math.random() * 6 }); return;
     case 'star': a.x = W * (0.1 + Math.random() * 0.5); a.y = 30 + Math.random() * H * 0.25; a.vx = 260 + Math.random() * 120; a.vy = 90 + Math.random() * 40; a.life = 1.6; break;
     case 'leaffall': a.x = (r ? r.cx : W * 0.4) + (Math.random() - 0.5) * 120; a.y = soilY - H * 0.25 - Math.random() * H * 0.15; a.vx = 8; a.vy = 22 + Math.random() * 10; a.life = (soilY - a.y) / a.vy; a.hue = 20 + Math.random() * 30; break;
+    case 'kite': a.ax = W * 0.1; a.ay = soilY + 36; a.x = a.ax + 80; a.y = soilY - H * 0.3; a.hue = Math.floor(Math.random() * 360); a.life = 22 + Math.random() * 12; break;
+    case 'balloon': a.x = -60; a.y = 50 + Math.random() * H * 0.18; a.vx = 10 + Math.random() * 6; a.hue = Math.floor(Math.random() * 360); a.life = (W + 140) / a.vx; break;
+    case 'plane': { const ltr = Math.random() < 0.5; a.x = ltr ? -80 : W + 80; a.vx = (ltr ? 1 : -1) * (70 + Math.random() * 40); a.y = 28 + Math.random() * 50; a.life = (W + 260) / Math.abs(a.vx); break; }
+    case 'cat': { const ltr = Math.random() < 0.5; a.x = ltr ? -40 : W + 40; a.vx = (ltr ? 1 : -1) * 45; a.y = soilY + 34 + Math.random() * 12; a.tx = desk.x + desk.w + 30 + Math.random() * 40; a.state = 'walk'; a.sitFor = 14 + Math.random() * 12; a.coat = [[59, 58, 64], [217, 139, 58], [185, 179, 168], [242, 236, 223]][Math.floor(Math.random() * 4)]; a.purr = 0; a.life = 150; fly('a cat wandered into the garden', '#d9b38c'); break; }
+    case 'snail': { if (!r) return; a.sid = foc.id; a.u = Math.random() < 0.5 ? 0.05 : 0.95; a.dir = a.u < 0.5 ? 1 : -1; a.life = 45 + Math.random() * 30; break; }
+    case 'owl': a.life = 50 + Math.random() * 40; a.blink = 0; a.look = 0; break;
+    case 'rainbow': a.life = 16 + Math.random() * 6; a.cx = W * (0.35 + Math.random() * 0.3); a.r = Math.min(W, H) * 0.55; break;
     case 'debris': a.x = -20; a.y = soilY - 20 - Math.random() * H * 0.35; a.vx = 180 + Math.random() * 120; a.vy = (Math.random() - 0.5) * 30; a.life = (W + 60) / a.vx; a.hue = Math.random() < 0.6 ? 100 + Math.random() * 30 : 25 + Math.random() * 20; break;
     default: return;
   }
@@ -1491,20 +1504,29 @@ function tickAmbient(dt, t) {
   for (const k of Object.keys(ambientClocks)) {
     ambientClocks[k] -= dt;
     if (ambientClocks[k] > 0) continue;
-    const reset = { gust: 25 + Math.random() * 45, cloud: 25 + Math.random() * 40, flock: 45 + Math.random() * 60, butterfly: 30 + Math.random() * 40, ladybug: 60 + Math.random() * 90, rabbit: 90 + Math.random() * 150, seeds: 40 + Math.random() * 60, star: 25 + Math.random() * 50, leaffall: 6 + Math.random() * 8 }[k];
+    const reset = { gust: 25 + Math.random() * 45, cloud: 25 + Math.random() * 40, flock: 45 + Math.random() * 60, butterfly: 30 + Math.random() * 40, ladybug: 60 + Math.random() * 90, rabbit: 90 + Math.random() * 150, seeds: 40 + Math.random() * 60, star: 25 + Math.random() * 50, leaffall: 6 + Math.random() * 8,
+      kite: 40 + Math.random() * 60, balloon: 240 + Math.random() * 300, plane: 180 + Math.random() * 240, cat: 150 + Math.random() * 200, snail: 120 + Math.random() * 180, owl: 90 + Math.random() * 120 }[k];
     ambientClocks[k] = reset;
     if (k === 'gust') { gustUntil = Date.now() + 2500 + Math.random() * 2000; for (let i = 0; i < 6 + Math.floor(Math.random() * 6); i++) setTimeout(() => spawnAmbient('debris'), i * 220); }
-    else if (k === 'butterfly' && !dark) spawnAmbient('butterfly');
-    else if (k === 'star' && dark) spawnAmbient('star');
-    else if (k === 'leaffall' && dusk) spawnAmbient('leaffall');
-    else if (k === 'seeds' && !dark) spawnAmbient('seeds');
-    else if (k !== 'butterfly' && k !== 'star' && k !== 'leaffall' && k !== 'seeds') spawnAmbient(k);
+    else if (k === 'butterfly') { if (!dark) spawnAmbient('butterfly'); }
+    else if (k === 'star') { if (dark) spawnAmbient('star'); }
+    else if (k === 'leaffall') { if (dusk) spawnAmbient('leaffall'); }
+    else if (k === 'seeds') { if (!dark) spawnAmbient('seeds'); }
+    else if (k === 'kite') { if (weather.wind > 0.35 || Date.now() < gustUntil) spawnAmbient('kite'); else ambientClocks[k] = 8 + Math.random() * 8; }
+    else if (k === 'balloon' || k === 'plane') { if (!dark && !isNight()) spawnAmbient(k); }
+    else if (k === 'owl') { if (dark && connected) spawnAmbient('owl'); }
+    else if (k === 'cat' || k === 'snail') { if (!ambient.some((a) => a.kind === k)) spawnAmbient(k); }
+    else spawnAmbient(k);
   }
   if (Date.now() < gustUntil) weather.wind = Math.max(weather.wind, 0.6);
+  // a rainbow when a spell of rain clears under a bright sky
+  if (weather.rain > 0.6) rainPeakAt = Date.now();
+  if (rainPeakAt && weather.rain < 0.25 && !dark) { if (!ambient.some((a) => a.kind === 'rainbow')) spawnAmbient('rainbow'); rainPeakAt = 0; }
+  else if (rainPeakAt && Date.now() - rainPeakAt > 40000) rainPeakAt = 0;
   for (let i = ambient.length - 1; i >= 0; i--) {
     const a = ambient[i]; a.age += dt;
     if (a.age < 0) continue;
-    if (a.age > a.life || (a.kind === 'ladybug' && !rects[a.sid])) { ambient.splice(i, 1); continue; }
+    if (a.age > a.life || ((a.kind === 'ladybug' || a.kind === 'snail') && !rects[a.sid]) || (a.kind === 'owl' && !skyIsDark())) { ambient.splice(i, 1); continue; }
     const gust = Date.now() < gustUntil ? 60 : 0;
     switch (a.kind) {
       case 'cloud': a.x += (a.vx + gust * 0.3) * dt; break;
@@ -1516,28 +1538,48 @@ function tickAmbient(dt, t) {
       case 'star': a.x += a.vx * dt; a.y += a.vy * dt; break;
       case 'leaffall': a.x += (a.vx + gust * 0.5 + Math.sin(a.age * 3 + a.phase) * 20) * dt; a.y += a.vy * dt; break;
       case 'debris': a.x += a.vx * dt; a.y += (a.vy + Math.sin(a.age * 6 + a.phase) * 25) * dt; break;
+      case 'kite': { const wind = 0.4 + weather.wind + (Date.now() < gustUntil ? 0.6 : 0); a.x += ((a.ax + 60 + wind * 120 + Math.sin(a.age * 0.9 + a.phase) * 30) - a.x) * 1.2 * dt; a.y += ((soilY - H * (0.22 + wind * 0.12) + Math.sin(a.age * 1.7 + a.phase) * 18) - a.y) * 1.2 * dt; break; }
+      case 'balloon': a.x += (a.vx + gust * 0.2) * dt; a.y += Math.sin(a.age * 0.4 + a.phase) * 6 * dt; break;
+      case 'plane': a.x += a.vx * dt; break;
+      case 'cat':
+        if (a.state === 'walk') { a.x += a.vx * dt; if ((a.vx > 0 && a.x >= a.tx) || (a.vx < 0 && a.x <= a.tx)) { a.state = 'sit'; a.sat = 0; } }
+        else if (a.state === 'sit') { a.sat += dt; if (a.sat > a.sitFor) { a.state = 'leave'; a.vx = -a.vx; } }
+        else { a.x += a.vx * dt; if (a.x < -50 || a.x > W + 50) a.age = a.life + 1; }
+        a.purr = Math.max(0, a.purr - dt);
+        break;
+      case 'snail': a.u += a.dir * 0.006 * dt; if (a.u < 0.02 || a.u > 0.98) a.dir *= -1; break;
+      case 'owl': a.blink = Math.max(0, a.blink - dt); if (Math.random() < dt * 0.15) a.blink = 0.2; if (Math.random() < dt * 0.1) a.look = [-1, 0, 1][Math.floor(Math.random() * 3)]; break;
+      case 'rainbow': break;
       default: break;
     }
   }
 }
 function ambientPos(a) {
-  if (a.kind === 'ladybug') { const r = rects[a.sid]; if (!r) return { x: -100, y: -100 }; return { x: r.x + a.u * r.w, y: r.y - 8 }; }
+  if (a.kind === 'ladybug' || a.kind === 'snail') { const r = rects[a.sid]; if (!r) return { x: -100, y: -100 }; return { x: r.x + a.u * r.w, y: r.y - (a.kind === 'snail' ? 5 : 8) }; }
   return { x: a.x, y: a.y };
 }
 function hitAmbient(x, y) {
   for (let i = ambient.length - 1; i >= 0; i--) {
     const a = ambient[i]; if (a.age < 0) continue;
-    if (!/^(butterfly|ladybug|star)$/.test(a.kind)) continue;
-    const p = ambientPos(a); const rad = a.kind === 'star' ? 26 : 16;
+    if (!/^(butterfly|ladybug|star|cat|snail)$/.test(a.kind)) continue;
+    const p = ambientPos(a); const rad = a.kind === 'star' ? 26 : a.kind === 'cat' ? 24 : 16;
+    if (a.kind === 'cat') { if (Math.abs(x - p.x) < rad && y > p.y - 34 && y < p.y + 8) return i; continue; }
     if (Math.abs(x - p.x) < rad && Math.abs(y - p.y) < rad) return i;
   }
   return -1;
 }
 function catchAmbient(i, x, y) {
-  const a = ambient.splice(i, 1)[0];
   const s = focused(); if (!s || !plants[s.id]) return;
+  if (ambient[i].kind === 'cat') {
+    // petting: hearts every time, sap only for the first pet of a visit
+    const c = ambient[i]; c.purr = 1.5;
+    for (let k = 0; k < 4; k++) particles.push({ kind: 'spark', text: '', x: x + (Math.random() - 0.5) * 24, y: y - 12, vx: (Math.random() - 0.5) * 40, vy: -30 - Math.random() * 40, age: 0, life: 1.1, size: 3 });
+    if (!c.paid) { c.paid = true; earn(s.id, 8 * clickPower() * yieldMult(plants[s.id]), x, y, '🐈 purr +', 'window', 'bird'); }
+    return;
+  }
+  const a = ambient.splice(i, 1)[0];
   const mult = a.kind === 'star' ? 25 : a.kind === 'butterfly' ? 5 : 3;
-  const label = a.kind === 'star' ? '✨ a wish +' : a.kind === 'butterfly' ? '🦋 +' : '🐞 +';
+  const label = a.kind === 'star' ? '✨ a wish +' : a.kind === 'butterfly' ? '🦋 +' : a.kind === 'snail' ? '🐌 +' : '🐞 +';
   earn(s.id, mult * clickPower() * yieldMult(plants[s.id]), x, y, label, a.kind === 'star' ? 'crit' : 'window', 'bird');
   for (let k = 0; k < (a.kind === 'star' ? 12 : 5); k++) particles.push({ kind: 'spark', text: '', x: x + (Math.random() - 0.5) * 30, y, vx: (Math.random() - 0.5) * 140, vy: -40 - Math.random() * 90, age: 0, life: 0.9, size: 3 });
 }
@@ -1562,6 +1604,27 @@ function drawAmbient(layer, t) {
         g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,' + fade.toFixed(2) + ')');
         ctx.strokeStyle = g; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(a.x - a.vx * 0.25, a.y - a.vy * 0.25); ctx.lineTo(a.x, a.y); ctx.stroke();
         ctx.fillStyle = 'rgba(255,255,255,' + fade.toFixed(2) + ')'; ctx.beginPath(); ctx.arc(a.x, a.y, 2.5, 0, Math.PI * 2); ctx.fill();
+      } else if (a.kind === 'balloon') {
+        ctx.save(); ctx.translate(a.x, a.y); ctx.globalAlpha = fade * (0.5 + 0.5 * dl);
+        ctx.fillStyle = 'hsl(' + a.hue + ',70%,55%)'; ctx.beginPath(); ctx.ellipse(0, 0, 15, 18, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.ellipse(-5.5, 0, 3.5, 17, 0, 0, Math.PI * 2); ctx.ellipse(5.5, 0, 3.5, 17, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'hsl(' + a.hue + ',50%,35%)'; ctx.beginPath(); ctx.moveTo(-8, 14); ctx.lineTo(8, 14); ctx.lineTo(3, 24); ctx.lineTo(-3, 24); ctx.closePath(); ctx.fill();
+        ctx.strokeStyle = 'rgba(60,40,20,0.8)'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(-3.5, 23); ctx.lineTo(-4.5, 31); ctx.moveTo(3.5, 23); ctx.lineTo(4.5, 31); ctx.stroke();
+        ctx.fillStyle = '#7a5433'; ctx.fillRect(-6, 31, 12, 7);
+        ctx.restore();
+      } else if (a.kind === 'plane') {
+        const dir = a.vx > 0 ? 1 : -1;
+        const g = ctx.createLinearGradient(a.x - dir * 170, 0, a.x - dir * 12, 0); g.addColorStop(0, 'rgba(255,255,255,0)'); g.addColorStop(1, 'rgba(255,255,255,' + (0.55 * fade * dl).toFixed(2) + ')');
+        ctx.strokeStyle = g; ctx.lineWidth = 2.4; ctx.beginPath(); ctx.moveTo(a.x - dir * 170, a.y + 1); ctx.lineTo(a.x - dir * 12, a.y + 1); ctx.stroke();
+        ctx.fillStyle = 'rgba(235,240,250,' + (0.9 * fade).toFixed(2) + ')';
+        ctx.beginPath(); ctx.moveTo(a.x + dir * 10, a.y); ctx.lineTo(a.x - dir * 8, a.y - 2.2); ctx.lineTo(a.x - dir * 10, a.y); ctx.lineTo(a.x - dir * 8, a.y + 2.2); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(a.x - dir * 2, a.y); ctx.lineTo(a.x - dir * 7, a.y - 6); ctx.lineTo(a.x - dir * 4, a.y); ctx.lineTo(a.x - dir * 7, a.y + 6); ctx.closePath(); ctx.fill();
+        ctx.fillRect(a.x - dir * 10 - 1, a.y - 3.5, 2, 3.5);
+      } else if (a.kind === 'rainbow') {
+        const bands = ['#ff4d4d', '#ffa64d', '#ffe74d', '#66d96b', '#4da6ff', '#8a5cff'];
+        const lw = Math.max(4, a.r * 0.028); ctx.lineWidth = lw;
+        for (let k = 0; k < bands.length; k++) { ctx.strokeStyle = bands[k]; ctx.globalAlpha = 0.26 * fade * dl; ctx.beginPath(); ctx.arc(a.cx, soilY + 30, Math.max(1, a.r - k * lw), Math.PI, Math.PI * 2); ctx.stroke(); }
+        ctx.globalAlpha = 1;
       }
       continue;
     }
@@ -1595,11 +1658,66 @@ function drawAmbient(layer, t) {
       for (let k = 0; k < 7; k++) { const ang = -Math.PI / 2 + (k - 3) * 0.32; ctx.beginPath(); ctx.moveTo(0, 0); ctx.lineTo(Math.cos(ang) * 7, Math.sin(ang) * 7); ctx.stroke(); }
       ctx.fillStyle = '#8a7a5a'; ctx.beginPath(); ctx.ellipse(0, 3, 1.2, 2.4, 0, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
+    } else if (a.kind === 'kite') {
+      ctx.save(); ctx.globalAlpha = fade;
+      ctx.strokeStyle = 'rgba(255,255,255,0.55)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(a.ax, a.ay); ctx.quadraticCurveTo((a.ax + a.x) / 2 - 20, (a.ay + a.y) / 2 + 30, a.x, a.y); ctx.stroke();
+      ctx.translate(a.x, a.y); ctx.rotate(0.35 + Math.sin(a.age * 1.7 + a.phase) * 0.15);
+      ctx.fillStyle = 'hsl(' + a.hue + ',80%,60%)'; ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(11, 0); ctx.lineTo(0, 18); ctx.lineTo(-11, 0); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(40,30,30,0.5)'; ctx.beginPath(); ctx.moveTo(0, -16); ctx.lineTo(0, 18); ctx.moveTo(-11, 0); ctx.lineTo(11, 0); ctx.stroke();
+      ctx.strokeStyle = 'hsl(' + ((a.hue + 40) % 360) + ',80%,65%)'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(0, 18);
+      for (let k = 1; k <= 5; k++) ctx.lineTo(Math.sin(a.age * 6 + k) * 6, 18 + k * 7);
+      ctx.stroke();
+      ctx.restore();
+    } else if (a.kind === 'cat') {
+      ctx.save(); ctx.translate(a.x, a.y); ctx.globalAlpha = fade; ctx.scale(a.vx > 0 ? 1 : -1, 1);
+      const sit = a.state === 'sit', step = sit ? 0 : Math.sin(a.age * 9) * 2;
+      shadow(0, 4, 30, 3, 0.18);
+      const coat = col(a.coat, dl); ctx.fillStyle = coat;
+      if (sit) { ctx.beginPath(); ctx.ellipse(0, -9, 9, 11, 0, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.ellipse(-2, 0, 11, 4, 0, 0, Math.PI * 2); ctx.fill(); }
+      else { ctx.beginPath(); ctx.ellipse(0, -7, 14, 6, 0, 0, Math.PI * 2); ctx.fill(); for (const lx of [-9, -3, 4, 10]) ctx.fillRect(lx - 1, -5, 2.5, 6 + (lx % 2 ? step : -step)); }
+      const hx = sit ? 1 : 13, hy = sit ? -23 : -13;
+      ctx.beginPath(); ctx.arc(hx, hy, 6, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(hx - 5.5, hy - 2); ctx.lineTo(hx - 4.5, hy - 10); ctx.lineTo(hx - 1, hy - 5); ctx.moveTo(hx + 5.5, hy - 2); ctx.lineTo(hx + 4.5, hy - 10); ctx.lineTo(hx + 1, hy - 5); ctx.fill();
+      ctx.strokeStyle = coat; ctx.lineWidth = 2.5; ctx.lineCap = 'round'; ctx.beginPath();
+      if (sit) { ctx.moveTo(7, 1); ctx.quadraticCurveTo(17 + Math.sin(a.age * 2) * 4, 0, 19 + Math.sin(a.age * 2) * 6, -9); } else { ctx.moveTo(-13, -9); ctx.quadraticCurveTo(-21, -19 + step * 2, -17, -25); }
+      ctx.stroke();
+      if (a.purr > 0) { ctx.strokeStyle = '#2b2620'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(hx - 2.2, hy - 1, 1.4, Math.PI, 0); ctx.moveTo(hx + 3.6, hy - 1); ctx.arc(hx + 2.2, hy - 1, 1.4, Math.PI, 0); ctx.stroke(); }
+      else { ctx.fillStyle = dl < 0.5 ? '#c8ff5c' : '#2b2620'; ctx.beginPath(); ctx.arc(hx - 2.2, hy - 1, 1, 0, Math.PI * 2); ctx.arc(hx + 2.2, hy - 1, 1, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore();
+      if (a.purr > 0) { ctx.fillStyle = 'rgba(255,110,150,' + Math.min(1, a.purr).toFixed(2) + ')'; ctx.font = '13px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('♥', a.x + (a.vx > 0 ? 10 : -10), a.y - 36 - (1.5 - a.purr) * 18); }
+    } else if (a.kind === 'snail') {
+      const p = ambientPos(a);
+      ctx.save(); ctx.translate(p.x, p.y); ctx.globalAlpha = fade; ctx.scale(a.dir, 1);
+      ctx.fillStyle = col([190, 170, 130], dl); ctx.beginPath(); ctx.ellipse(1, 1, 7, 2.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = col([200, 140, 80], dl); ctx.beginPath(); ctx.arc(-2, -3, 4.2, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = col([120, 70, 40], dl); ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(-2, -3, 2.4, 0, Math.PI * 1.5); ctx.stroke();
+      ctx.strokeStyle = col([190, 170, 130], dl); ctx.beginPath(); ctx.moveTo(6, -1); ctx.lineTo(8, -5); ctx.moveTo(4, -1); ctx.lineTo(5, -5); ctx.stroke();
+      ctx.restore();
+    } else if (a.kind === 'owl') {
+      ctx.save(); ctx.translate(mailbox.x + mailbox.w / 2, mailbox.y - mailbox.h - 2); ctx.globalAlpha = fade;
+      ctx.fillStyle = '#5a4634'; ctx.beginPath(); ctx.ellipse(0, -9, 7, 10, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.moveTo(-6, -17); ctx.lineTo(-4, -23); ctx.lineTo(-1, -18); ctx.moveTo(6, -17); ctx.lineTo(4, -23); ctx.lineTo(1, -18); ctx.fill();
+      ctx.fillStyle = '#8a7256'; ctx.beginPath(); ctx.ellipse(0, -6, 4, 6, 0, 0, Math.PI * 2); ctx.fill();
+      const open = a.blink > 0 ? 0.15 : 1, lx = a.look * 1.1;
+      ctx.fillStyle = '#ffd45c'; ctx.beginPath(); ctx.ellipse(-2.6 + lx, -14, 2.2, 2.2 * open, 0, 0, Math.PI * 2); ctx.ellipse(2.6 + lx, -14, 2.2, 2.2 * open, 0, 0, Math.PI * 2); ctx.fill();
+      if (open > 0.5) { ctx.fillStyle = '#1c1c24'; ctx.beginPath(); ctx.arc(-2.6 + lx * 1.4, -14, 1, 0, Math.PI * 2); ctx.arc(2.6 + lx * 1.4, -14, 1, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = '#e8b04a'; ctx.beginPath(); ctx.moveTo(-1.5, -11.5); ctx.lineTo(1.5, -11.5); ctx.lineTo(0, -9); ctx.closePath(); ctx.fill();
+      ctx.restore();
     } else if (a.kind === 'leaffall' || a.kind === 'debris') {
       ctx.save(); ctx.translate(a.x, a.y); ctx.rotate(a.age * (a.kind === 'debris' ? 9 : 3) + a.phase); ctx.globalAlpha = 0.85 * fade;
       ctx.fillStyle = 'hsl(' + a.hue + ',55%,' + (a.kind === 'debris' && a.hue > 90 ? 42 : 50) + '%)';
       ctx.beginPath(); ctx.ellipse(0, 0, 5, 2.6, 0, 0, Math.PI * 2); ctx.fill();
       ctx.restore();
+    }
+  }
+  // morning mist on the ground while the context is fresh
+  if (layer === 'front' && connected && !isNight() && dayFraction() < 0.14) {
+    const al = (0.14 - dayFraction()) / 0.14 * 0.28;
+    for (let i = 0; i < 4; i++) {
+      const mx = (((i * 0.27 + t * 0.012 * (1 + i * 0.3)) % 1.3) - 0.15) * W, my = soilY + 14 + i * 16;
+      const g = ctx.createRadialGradient(mx, my, 0, mx, my, W * 0.22);
+      g.addColorStop(0, 'rgba(255,255,255,' + al.toFixed(2) + ')'); g.addColorStop(1, 'rgba(255,255,255,0)');
+      ctx.fillStyle = g; ctx.beginPath(); ctx.ellipse(mx, my, W * 0.22, 18, 0, 0, Math.PI * 2); ctx.fill();
     }
   }
   // fireflies over the ground at night

@@ -318,10 +318,15 @@ so in the panel. Click in a mirroring window and it takes over.
 
 Things happen on their own: wind gusts that blow leaves across and bend the
 grass, drifting clouds, distant flocks, dandelion seeds, falling leaves at
-dusk, fireflies at night, a rabbit along the path, ladybugs on the rim,
-butterflies at the plant, bees during quiet stretches, and shooting stars at
-night. Butterflies, ladybugs, bees, and shooting stars can be clicked for a
-bonus; the rest are just for watching.
+dusk, fireflies at night, a rabbit along the path, ladybugs and snails on the
+rim, butterflies at the plant, bees during quiet stretches, shooting stars at
+night, a kite when the wind is up, a hot-air balloon and a plane with a
+contrail now and then, a rainbow when a spell of rain clears under a bright
+sky, an owl on the mailbox after dark, morning mist while the context is
+fresh, and a cat that wanders in and sits by the desk for a while.
+Butterflies, ladybugs, snails, bees, and shooting stars can be clicked for a
+bonus, and the cat pays for the first pet of each visit; the rest are just
+for watching.
 
 ## Turning it off
 
