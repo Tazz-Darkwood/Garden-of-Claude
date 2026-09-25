@@ -260,3 +260,18 @@ button.on { background: var(--alert); color: #1a0d05; font-weight: 700; }
 #almanac-runs th, #almanac-runs td { text-align: right; padding: 4px 6px; border-bottom: 1px solid #e3d9c3; font-variant-numeric: tabular-nums; }
 #almanac-runs th:first-child, #almanac-runs td:first-child { text-align: left; }
 #almanac-runs th { color: #6b6250; font-weight: 600; }
+
+/* ---------- tour ---------- */
+#tour-open { pointer-events: auto; width: 26px; height: 26px; padding: 0; border-radius: 50%; background: var(--glass); backdrop-filter: blur(6px); color: var(--ink-dim); font-weight: 700; border: 1px solid rgba(255,255,255,0.15); }
+#tour-open:hover { color: var(--ink); }
+#tour { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
+#tour.hidden { display: none; }
+#tour-ring { position: absolute; border: 3px solid var(--light); border-radius: 14px; box-shadow: 0 0 0 9999px rgba(5, 8, 16, 0.45), 0 0 18px rgba(255, 203, 92, 0.6); transition: left 0.25s, top 0.25s, width 0.25s, height 0.25s; }
+#tour-card { position: absolute; width: min(320px, calc(100% - 24px)); background: #f6efe0; color: #24201a; border-radius: 12px; padding: 12px 14px; box-shadow: 0 10px 30px rgba(0,0,0,0.35); pointer-events: auto; transition: left 0.25s, top 0.25s; }
+#tour-title { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+#tour-text { font-size: 13px; line-height: 1.4; color: #3b3428; }
+#tour-buttons { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+#tour-step { font-size: 11px; color: #6b6250; }
+#tour-buttons .spacer { flex: 1; }
+#tour-next { background: #2f7a3a; color: #fff; font-weight: 700; }
+#tour-skip { background: rgba(0,0,0,0.08); color: #24201a; }

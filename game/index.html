@@ -13,6 +13,7 @@
   <div id="topbar">
     <div id="status" class="pill offline">connecting...</div>
     <div id="sessions"></div>
+    <button id="tour-open" title="A short tour of the garden">?</button>
   </div>
   <div id="activity">waiting for Claude...</div>
 </div>
@@ -98,6 +99,15 @@
 
 <div id="board"><div id="board-head"><span id="board-title">Claude</span><span id="board-meta"></span></div><div id="board-list"></div><div id="board-log"></div></div>
 <div id="tip" class="hidden"></div>
+
+<div id="tour" class="hidden">
+  <div id="tour-ring"></div>
+  <div id="tour-card">
+    <div id="tour-title"></div>
+    <div id="tour-text"></div>
+    <div id="tour-buttons"><span id="tour-step"></span><span class="spacer"></span><button id="tour-skip" class="quiet">Skip</button><button id="tour-next">Next</button></div>
+  </div>
+</div>
 
 <div id="attention" class="hidden">
   <div id="attention-title">Claude needs you</div>

@@ -387,6 +387,13 @@ every species at five stages.
 ground with tufts that sway in the wind, pebbles, a worn path, and every
 object casts a shadow and dims with the daylight.
 
+## The tour
+
+The first visit gets a short tour: eight spotlights, one part of the garden
+at a time, each with two sentences on what it does in the game and what it
+means for Claude. Skip or Escape ends it, and the **?** in the top bar
+replays it any time. The words follow the theme.
+
 ## What goes where
 
 Each fact is shown once. Small things fly; big things go to the board.

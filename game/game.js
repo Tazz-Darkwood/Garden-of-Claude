@@ -5469,6 +5469,68 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
   };
 })();
 
+// ---------- the tour: eight spotlights for a first visit ----------
+// Each step names a part of the garden and says what it does in the game and
+// what it means for Claude. It runs once, and the ? in the top bar replays it.
+const TOUR = [
+  { target: 'plant', title: () => 'Your session\'s ' + W_('plant'), text: () => 'One planter per Claude session. Click it to draw ' + W_('sap') + '. It grows on its own while Claude works, and a bigger ' + W_('plant') + ' multiplies every click.' },
+  { target: 'board', title: () => 'The board', text: () => 'Everything Claude says appears here in full, with a log of what it did underneath. Nothing gets cut off.' },
+  { target: 'sky', title: () => 'The weather is Claude working', text: () => 'File reads fall as rain, writes shine as a ' + W_('sunbeam') + ', shell commands blow as wind. Clicking inside a ' + W_('sunbeam') + ' or a ' + W_('puddle') + ' pays extra, so watching Claude pays.' },
+  { target: 'mailbox', title: () => W_('mailboxTitle'), text: () => 'When Claude asks you a question, a letter lands here and the flag goes up. Open it and reply without opening the app.' },
+  { target: 'desk', title: () => W_('deskTitle'), text: () => 'When the lamp is lit, Claude is standing by: write here and it goes straight to Claude. When Claude is busy, your note is handed over the moment its turn ends.' },
+  { target: 'lantern', title: () => 'Context', text: () => 'This burns down as Claude\'s context window fills. When it gutters, compaction is near; it is relit afterwards. Hover it for the numbers.' },
+  { target: 'gate', title: () => W_('gateTitle'), text: () => 'Claude waits here when it needs your permission; answer that in the app. The Pause button refuses Claude\'s next tool call until you resume.' },
+  { target: 'buttons', title: () => 'Shop and Almanac', text: () => 'Spend ' + W_('sap') + ' on upgrades that sharpen your clicks; nothing here clicks for you. The Almanac holds seasons, legacy, and achievements. Hover anything in the garden for a tooltip.' },
+];
+let tourStep = -1, tourTimer = null;
+function tourRect(target) {
+  const foc = focused(); const r = (foc && rects[foc.id]) || placeholderRect;
+  const box = (x, y, w, h) => ({ x, y, w, h });
+  switch (target) {
+    case 'plant': return r ? box(r.x - 24, Math.max(70, r.y - H * 0.42), r.w + 48, r.y + r.h - Math.max(70, r.y - H * 0.42) + 6) : box(W * 0.3, H * 0.3, W * 0.3, H * 0.4);
+    case 'board': { const b = $('board').getBoundingClientRect(); return box(b.left - 6, b.top - 6, b.width + 12, b.height + 12); }
+    case 'sky': return box(16, 70, Math.max(200, W * 0.5), Math.max(120, soilY * 0.45));
+    case 'mailbox': return box(mailbox.x - 14, mailbox.y - mailbox.h - 16, mailbox.w + 40, mailbox.h + mailbox.postH + 24);
+    case 'desk': return box(desk.x - 12, desk.y - 72, desk.w + 24, 84);
+    case 'lantern': { const l = foc && lanterns[foc.id]; return l ? box(l.x - l.w / 2 - 10, l.y - l.h / 2 - 12, l.w + 20, l.h + 24) : box(r ? r.x - 50 : 100, soilY - 60, 50, 70); }
+    case 'gate': return box(gate.x - 16, gate.y - 96, gate.w + 32, 110);
+    case 'buttons': { const b = $('buttons').getBoundingClientRect(); return box(b.left - 6, b.top - 6, b.width + 12, b.height + 12); }
+    default: return box(W / 2 - 100, H / 2 - 60, 200, 120);
+  }
+}
+function tourPlace() {
+  if (tourStep < 0) return;
+  const step = TOUR[tourStep], rc = tourRect(step.target);
+  const ring = $('tour-ring'); ring.style.left = rc.x + 'px'; ring.style.top = rc.y + 'px'; ring.style.width = rc.w + 'px'; ring.style.height = rc.h + 'px';
+  const card = $('tour-card'); const cw = Math.min(320, W - 24), ch = card.offsetHeight || 120;
+  let x = rc.x + rc.w / 2 - cw / 2, y = rc.y + rc.h + 14;
+  if (y + ch > H - 12) y = rc.y - ch - 14;
+  if (y < 12) { y = Math.max(12, Math.min(H - ch - 12, rc.y)); x = rc.x + rc.w + 14; if (x + cw > W - 12) x = rc.x - cw - 14; }
+  x = Math.max(12, Math.min(W - cw - 12, x));
+  card.style.left = x + 'px'; card.style.top = y + 'px';
+}
+function tourShow(i) {
+  tourStep = i;
+  const step = TOUR[i];
+  $('tour-title').textContent = step.title(); $('tour-text').textContent = step.text();
+  $('tour-step').textContent = (i + 1) + ' / ' + TOUR.length;
+  $('tour-next').textContent = i === TOUR.length - 1 ? 'Done' : 'Next';
+  $('tour').classList.remove('hidden');
+  tourPlace();
+  if (!tourTimer) tourTimer = setInterval(tourPlace, 250);
+}
+function tourEnd() {
+  tourStep = -1; $('tour').classList.add('hidden');
+  if (tourTimer) { clearInterval(tourTimer); tourTimer = null; }
+  prefs.tourDone = true; saveJSON(PREF_KEY, prefs);
+}
+function tourStart() { for (const p of PANELS) $(p).classList.add('hidden'); tourShow(0); }
+$('tour-next').addEventListener('click', () => { if (tourStep + 1 < TOUR.length) tourShow(tourStep + 1); else tourEnd(); });
+$('tour-skip').addEventListener('click', tourEnd);
+$('tour-open').addEventListener('click', tourStart);
+document.addEventListener('keydown', (e) => { if (tourStep >= 0 && e.key === 'Escape') tourEnd(); });
+if (!GALLERY && !prefs.tourDone) { let waited = 0; const t0 = setInterval(() => { if (prefs.tourDone || tourStep >= 0) { clearInterval(t0); return; } if (W && H && (focused() ? rects[focused().id] : placeholderRect)) { waited += 1; if (waited >= 5) { clearInterval(t0); tourStart(); } } }, 500); }
+
 // Apply a theme: remember it, retitle the static labels, and redraw the shop.
 function applyTheme(id, preview) {
   if (!THEMES[id] || (!preview && !themeOwned(id))) id = 'garden';
@@ -5486,7 +5548,7 @@ function applyTheme(id, preview) {
   if (fromUrl) applyTheme(fromUrl, true); else applyTheme(prefs.theme || 'garden');
 }
 
-window.__garden = { critters, particles, plants, garden, ambient, spawnAmbient, deskState, openDesk, sessions: () => sessions, holds: () => pendingHolds, holding: () => holding, letters: () => letters, focused, holdRate, celebrateCommand, hourglass, desk, THEMES, applyTheme, theme: () => theme, prestige, legacyGain, renderAlmanac, ACHIEVEMENTS, PERKS, hold: (on) => { holding = on && focused() ? { sid: focused().id, x: W / 2, y: H * 0.7, acc: 0 } : null; } };   // debugging handle
+window.__garden = { critters, particles, plants, garden, ambient, spawnAmbient, deskState, openDesk, sessions: () => sessions, holds: () => pendingHolds, holding: () => holding, letters: () => letters, focused, holdRate, celebrateCommand, hourglass, desk, THEMES, applyTheme, theme: () => theme, gate, mailbox, tourStart, tourShow, prestige, legacyGain, renderAlmanac, ACHIEVEMENTS, PERKS, hold: (on) => { holding = on && focused() ? { sid: focused().id, x: W / 2, y: H * 0.7, acc: 0 } : null; } };   // debugging handle
 updateHud();
 requestAnimationFrame(frame);
 })();
