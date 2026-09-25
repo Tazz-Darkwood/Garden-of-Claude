@@ -187,6 +187,8 @@ per browser), and `?theme=wizard` in the address previews one.
   torch, a log gate with a bone fence, a campfire whose wood pile is the
   context, helpers with feathers. 10M sap.
 
+The cat is the same cat in every theme. That is on purpose.
+
 Adding a theme is one object in `game/game.js` (see `THEMES.wizard`).
 
 ## What else the garden shows
