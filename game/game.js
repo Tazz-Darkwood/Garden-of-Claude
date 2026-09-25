@@ -35,6 +35,8 @@ const GARDEN_WORDS = {
 };
 const THEMES = {};
 const themeShared = {};   // helpers that themes lend each other
+// Themed plants scale with the room above the planter so a grown one fills the screen.
+function themeRoom(r) { return Math.max(1, Math.min(1.7, (r.y - 90) / 340)); }
 let theme = { id: 'garden', name: 'Garden', icon: '🌱', price: 0, blurb: 'The plant in its pot: sap, seeds, water, light, and nutrients. Always yours.', words: GARDEN_WORDS, items: {}, species: {}, draw: {} };
 const themeOwned = (id) => id === 'garden' || (garden.levels['theme:' + id] || 0) > 0;
 THEMES.garden = theme;
@@ -3373,10 +3375,12 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     if (!plant) return;
     const dl = daylight();
     const sp = speciesOf(plant), si = plantStage(plant), prog = plantProgress(plant);
-    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.25 : 1);
-    const cx = r.cx, base = r.y - 6;
     const shape = sp.shape;
-    const floors = Math.min(si, 12), floorH = (shape === 'stem' ? 24 : 20) * k;
+    const floors = Math.min(si, 12), fhUnit = shape === 'stem' ? 26 : 22, roofUnit = shape === 'stem' ? 66 : shape === 'spikes' ? 42 : 54;
+    let k = Math.max(0.6, r.scale) * (si >= 11 ? 1.25 : 1) * themeRoom(r);
+    k *= Math.max(0.3, Math.min(1, Math.max(120, r.y - 84) / ((floors * fhUnit + roofUnit + 44) * k)));   // fill the room above the planter, never more
+    const cx = r.cx, base = r.y - 6;
+    const floorH = fhUnit * k;
     const bw = (shape === 'stem' ? 17 : shape === 'spikes' ? 26 : shape === 'cactus' ? 22 : 28) * k;
     const height = floors * floorH + prog * floorH * 0.6;
     const wall = shape === 'cactus' ? [30, 26, 40] : shape === 'fronds' ? [150, 200, 230] : shape === 'moon' ? [200, 205, 225] : shape === 'stem' ? [220, 190, 110] : shape === 'spikes' ? [140, 100, 200] : [126, 122, 136];
@@ -3440,7 +3444,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     if (crystal) { for (let i = -3; i <= 3; i++) { ctx.fillStyle = shape === 'moon' ? col([225, 228, 245], dl, 0.9) : col([180, 230, 255], dl, 0.85); ctx.beginPath(); ctx.moveTo(cx + i * topW * 0.33 - 3 * k, top - 3 * k); ctx.lineTo(cx + i * topW * 0.33, top - (9 + (i % 2) * 4) * k); ctx.lineTo(cx + i * topW * 0.33 + 3 * k, top - 3 * k); ctx.closePath(); ctx.fill(); } }
     else { ctx.fillStyle = wallCol(1.15); for (let i = -3; i <= 3; i++) { if (i % 2) continue; ctx.fillRect(cx + i * topW * 0.33 - 3 * k, top - 10 * k, 6 * k, 7 * k); } if (shape === 'cactus') { ctx.fillStyle = col([20, 16, 30], dl); for (let i = -3; i <= 3; i++) { if (!(i % 2)) continue; ctx.beginPath(); ctx.moveTo(cx + i * topW * 0.33 - 2 * k, top - 3 * k); ctx.lineTo(cx + i * topW * 0.33, top - 12 * k); ctx.lineTo(cx + i * topW * 0.33 + 2 * k, top - 3 * k); ctx.closePath(); ctx.fill(); } } }
     const roofBase = top - 10 * k, roofW = topW + 6 * k;
-    const roofH = (shape === 'stem' ? 60 : shape === 'spikes' ? 38 : 46) * k;
+    const roofH = roofUnit * k;
     const roofY = roofBase - roofH;
     if (shape === 'spikes') {
       // amethyst cluster: three crystal spires
@@ -4006,7 +4010,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     _t = t;
     const dl = daylight();
     const sp = speciesOf(plant), si = plantStage(plant), prog = plantProgress(plant);
-    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.25 : 1);
+    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.25 : 1) * themeRoom(r);
     const cx = r.cx;
     const shape = sp.shape;
     const rad = (8 + Math.min(si, 12) * 4 + prog * 3) * k;
@@ -4309,7 +4313,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     if (!plant) return;
     const dl = daylight();
     const sp = speciesOf(plant), si = plantStage(plant), prog = plantProgress(plant);
-    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.3 : si >= 8 ? 1.15 : 1);
+    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.3 : si >= 8 ? 1.15 : 1) * themeRoom(r);
     const cx = r.cx, base = r.y - 2;
     const shape = sp.shape;
     const skin = shape === 'cactus' ? [110, 100, 70] : shape === 'fronds' ? [230, 170, 60] : shape === 'moon' ? [90, 80, 100] : shape === 'stem' ? [90, 130, 90] : shape === 'spikes' ? [160, 110, 150] : shape === 'bonsai' ? [120, 120, 80] : sp.thorns ? [70, 120, 60] : [90, 150, 80];
@@ -4630,7 +4634,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     if (!plant) return;
     const dl = daylight();
     const sp = speciesOf(plant), si = plantStage(plant), prog = plantProgress(plant);
-    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.3 : 1);
+    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.3 : 1) * themeRoom(r);
     const cx = r.cx, base = r.y - 4;
     const shape = sp.shape;
     const size = (8 + Math.min(si, 12) * 5 + prog * 4) * k;
@@ -4937,7 +4941,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     if (!plant) return;
     const dl = daylight();
     const sp = speciesOf(plant), si = plantStage(plant), prog = plantProgress(plant);
-    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.25 : 1);
+    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.25 : 1) * themeRoom(r);
     const cx = r.cx, base = r.y - 8;
     const shape = sp.shape;
     const metal = shape === 'cactus' ? [90, 84, 86] : shape === 'fronds' ? [200, 225, 235] : shape === 'moon' ? [210, 210, 220] : shape === 'stem' ? [240, 200, 90] : shape === 'spikes' ? [200, 120, 80] : shape === 'bonsai' ? [220, 190, 110] : sp.thorns ? [110, 100, 100] : [215, 170, 70];
@@ -5229,7 +5233,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     if (!plant) return;
     const dl = daylight();
     const sp = speciesOf(plant), si = plantStage(plant), prog = plantProgress(plant);
-    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.3 : 1);
+    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.3 : 1) * themeRoom(r);
     const cx = r.cx, base = r.y - 6;
     const shape = sp.shape;
     const sponge = shape === 'cactus' ? [120, 70, 40] : shape === 'stem' ? [240, 220, 120] : shape === 'spikes' ? [190, 160, 220] : sp.thorns ? [170, 40, 50] : shape === 'moon' ? [200, 170, 110] : [240, 200, 140];
