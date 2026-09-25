@@ -358,12 +358,14 @@ function focused() {
   const live = liveSessions().sort((a, b) => b.lastSeen - a.lastSeen);
   return live[0] || null;
 }
-function dayFraction() {
-  const s = focused();
-  if (!s || !s.context || !s.context.window) return 0.12;
-  return Math.max(0, Math.min(1, s.context.tokens / s.context.window / compactAt));
-}
-function isNight() { const s = focused(); return Boolean(s && s.night); }
+// Time of day follows the real clock: the sun rises at SUNRISE and sets at
+// SUNSET (local hours), and it is night in between. The context fraction is
+// shown as a number under each plant's name tag and in the panel instead.
+const SUNRISE = 6.5, SUNSET = 20.5;
+function clockHours() { const d = new Date(); return d.getHours() + d.getMinutes() / 60 + d.getSeconds() / 3600; }
+function dayFraction() { return Math.max(0, Math.min(1, (clockHours() - SUNRISE) / (SUNSET - SUNRISE))); }
+function isNight() { const h = clockHours(); return h < SUNRISE || h >= SUNSET; }
+function contextFraction(s) { return s && s.context && s.context.window ? Math.max(0, Math.min(1, s.context.tokens / s.context.window)) : 0; }
 function anyoneWorking() { const now = Date.now(); return liveSessions().some((s) => s.status === 'working' && now - s.lastSeen < 60 * 1000); }
 
 function resize() {
@@ -763,7 +765,7 @@ function updateHud() {
   if (fs && fs.context && fs.context.window) {
     const pct = 100 * fs.context.tokens / fs.context.window;
     $('context').style.width = pct.toFixed(1) + '%';
-    $('context-label').textContent = (fs.night ? 'night ' : 'context ') + Math.round(pct) + '%';
+    $('context-label').textContent = (fs.night ? 'compacting ' : 'context ') + Math.round(pct) + '%';
     $('context-row').title = Math.round(fs.context.tokens / 1000) + 'K of ' + Math.round(fs.context.window / 1000) + 'K tokens in ' + sessionLabel(fs) + '. Sunset at ' + Math.round(compactAt * 100) + '%, when compaction is due.';
   } else {
     $('context').style.width = '0%';
@@ -1500,7 +1502,7 @@ function spawnAmbient(kind) {
   ambient.push(a);
 }
 function tickAmbient(dt, t) {
-  const dark = skyIsDark(), f = dayFraction(), dusk = !isNight() && f > 0.78;
+  const dark = skyIsDark(), f = dayFraction(), dusk = !isNight() && f > 0.85;
   for (const k of Object.keys(ambientClocks)) {
     ambientClocks[k] -= dt;
     if (ambientClocks[k] > 0) continue;
@@ -1769,7 +1771,7 @@ function dayColors(f) {
   return [DAY[DAY.length - 1][1], DAY[DAY.length - 1][2]];
 }
 
-function skyIsDark() { return !connected || isNight() || dayFraction() > 0.78 || mode === 'idle' || weather.rain > 0.5; }
+function skyIsDark() { return !connected || isNight() || dayFraction() > 0.92 || mode === 'idle' || weather.rain > 0.5; }
 
 function skyColors(t) {
   let top, bottom;
@@ -2036,6 +2038,15 @@ function drawPlanter(r, s, plant, isFocus) {
     ctx.fillStyle = '#2b2620';
     ctx.save(); ctx.beginPath(); ctx.rect(cx - tw / 2 + 16, y, tw - 20, h); ctx.clip();
     ctx.fillText(label, cx + 6, y + h / 2); ctx.restore();
+    // how full this session's context is, as a small line under the tag
+    const pct = Math.round(100 * contextFraction(s));
+    const ctxText = s.night ? '☽ compacting' : 'context ' + pct + '%';
+    ctx.font = '600 10px "Segoe UI", system-ui, sans-serif';
+    const cw = ctx.measureText(ctxText).width + 14;
+    const warn = !s.night && pct >= 100 * compactAt * 0.85;
+    ctx.fillStyle = warn ? 'rgba(255,170,90,0.94)' : 'rgba(255,245,225,0.85)';
+    ctx.beginPath(); ctx.roundRect(cx - cw / 2, y + h / 2 + 12, cw, 15, 4); ctx.fill();
+    ctx.fillStyle = warn ? '#3a1d05' : '#4a4036'; ctx.fillText(ctxText, cx, y + h / 2 + 19.5);
   }
 }
 

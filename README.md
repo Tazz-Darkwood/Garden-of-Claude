@@ -125,19 +125,21 @@ watch a remote session you would run the server there and open its page.
 | Permission or question | Amber pulse, "Claude needs you"           |
 | Nothing for a while    | Fog                                       |
 
-## The sky is the context window
+## Time of day and the context window
 
-The sun's position is how full Claude's context is. Dawn is an empty
-context, noon is halfway to the compaction threshold, and dusk with the first
-stars means compaction is due: let auto-compact run or trigger it yourself.
-Compaction itself is night with a moon, and the new day dawns when it finishes.
+The sky follows your clock: the sun rises at 6:30, crosses the sky, and sets
+at 20:30, with stars and a moon in between, so the light stays steady when
+you switch between planters. Morning mist lies on the ground early, leaves
+fall at dusk, and the owl and fireflies come out after dark.
 
-The fraction comes from the session transcript: the latest assistant message's
-input plus cached tokens, divided by the model's window (1M for current
-models, 200K otherwise; override with `GARDEN_CONTEXT_WINDOW`). Sunset is at
-90% of the window by default (`GARDEN_COMPACT_AT`). Each session pill shows its
-own sun or moon and percentage; click a pill to make the sky follow that
-session.
+How full each session's context is shows as a small line under the plant's
+name tag ("context 27%", turning orange as compaction nears and reading
+"compacting" during it), in the session pill at the top, and in the panel's
+context meter. The fraction comes from the session transcript: the latest
+assistant message's input plus cached tokens, divided by the model's window
+(1M for current models, 200K otherwise; override with
+`GARDEN_CONTEXT_WINDOW`). Compaction is due at 90% of the window by default
+(`GARDEN_COMPACT_AT`). Compaction ends with a brief flash of daylight.
 
 ## Planters, stakes, and the gate
 
