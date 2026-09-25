@@ -150,9 +150,10 @@ assistant message's input plus cached tokens, divided by the model's window
 The look is a theme, and the numbers underneath are not. A theme is a set of
 optional overrides over the garden baseline: the words the interface uses,
 names and icons for shop items and species, a sky palette, and canvas
-renderers for scene elements; anything a theme leaves out falls back to the
-garden. The **Theme** button in the panel cycles through them (remembered per
-browser), and `?theme=wizard` in the address opens one directly.
+renderers for scene elements and ambient life; anything a theme leaves out
+falls back to the garden. Themes are bought with sap on the shop's **Themes**
+tab and switched there (the garden is always owned; the choice is remembered
+per browser), and `?theme=wizard` in the address previews one.
 
 - **Garden** (default): the plant, the pot, sap, seeds, water, light, nutrients.
 - **Wizard tower**: a tower that gains a floor per stage on a rune-carved
@@ -160,7 +161,10 @@ browser), and `?theme=wizard` in the address opens one directly.
   the meters, a wand and grimoire in the shop, imps for failed tools, wisps
   for bees, an observatory for the greenhouse, and apprentices in pointy hats
   for subagents. Windows light at stage five, a crystal tops the spire at six,
-  stones orbit from seven, and a storm ring crackles from eight.
+  stones orbit from seven, and a storm ring crackles from eight. The props
+  become an ether cistern, a ley stone, a warding sigil, and an astrolabe;
+  the ambient life becomes sprites, scarabs, toads, bats, an airship, a
+  dragon, embers, slimes, and an aurora in place of the rainbow. 10M sap.
 
 Adding a theme is one object in `game/game.js` (see `THEMES.wizard`).
 

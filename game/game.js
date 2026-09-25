@@ -31,7 +31,8 @@ const GARDEN_WORDS = {
   shopTitle: 'Garden shop', shopTab: 'Garden', stages: STAGE_NAMES,
 };
 const THEMES = {};
-let theme = { id: 'garden', name: 'Garden', words: GARDEN_WORDS, items: {}, species: {}, draw: {} };
+let theme = { id: 'garden', name: 'Garden', icon: '🌱', price: 0, blurb: 'The plant in its pot: sap, seeds, water, light, and nutrients. Always yours.', words: GARDEN_WORDS, items: {}, species: {}, draw: {} };
+const themeOwned = (id) => id === 'garden' || (garden.levels['theme:' + id] || 0) > 0;
 THEMES.garden = theme;
 function W_(k) { return theme.words && theme.words[k] != null ? theme.words[k] : GARDEN_WORDS[k]; }
 function R_(name, fn) { return (theme.draw && theme.draw[name]) || fn; }
@@ -875,12 +876,42 @@ function renderShop(force) {
   $('shop-seeds').textContent = fmt(garden.sap) + ' ' + W_('sap');
   // Rebuild rows only when a level or an affordability changes, so buttons stay
   // stable under the mouse (a rebuilt button cannot be clicked).
-  const sig = shopCat + '|' + ITEMS.map((u) => lvl(u.id) + (garden.sap >= costOf(u) ? 'a' : 'x')).join(',');
+  const sig = shopCat + '|' + theme.id + '|' + ITEMS.map((u) => lvl(u.id) + (garden.sap >= costOf(u) ? 'a' : 'x')).join(',') + '|' + Object.keys(THEMES).map((id) => (themeOwned(id) ? 'o' : garden.sap >= THEMES[id].price ? 'a' : 'x')).join('');
   const list = $('shop-list');
   if (!force && sig === shopSig && list.children.length) return;
   shopSig = sig;
   for (const b of $('shop-tabs').querySelectorAll('button')) b.classList.toggle('on', b.dataset.cat === shopCat);
   list.innerHTML = '';
+  if (shopCat === 'theme') {
+    for (const th of Object.values(THEMES)) {
+      const owned = themeOwned(th.id), inUse = theme.id === th.id;
+      const row = document.createElement('div'); row.className = 'upgrade' + (owned ? ' owned' : '');
+      const icon = document.createElement('div'); icon.className = 'icon'; icon.textContent = th.icon || '🎨'; row.appendChild(icon);
+      const text = document.createElement('div'); text.className = 'text';
+      const name = document.createElement('div'); name.className = 'name'; name.textContent = th.name;
+      const desc = document.createElement('div'); desc.className = 'desc'; desc.textContent = th.blurb || '';
+      text.appendChild(name); text.appendChild(desc); row.appendChild(text);
+      const btn = document.createElement('button');
+      btn.textContent = !owned ? fmt(th.price) + ' ' + W_('sap') : inUse ? 'In use' : 'Use';
+      btn.disabled = owned ? inUse : garden.sap < th.price;
+      btn.addEventListener('click', () => {
+        if (!themeOwned(th.id)) {
+          if (garden.sap < th.price) return;
+          claimWriter();
+          garden.sap -= th.price; garden.levels['theme:' + th.id] = 1; ledger.spent += th.price;
+          recordEvent('bought the ' + th.name.toLowerCase() + ' theme for ' + fmt(th.price) + ' ' + W_('sap'), -th.price);
+          saveJSON(SAVE_KEY, garden);
+          pushTicker('you bought the ' + th.name.toLowerCase() + ' theme', 'you');
+        }
+        applyTheme(th.id);
+        pushTicker('theme: ' + theme.name, 'you');
+        renderShop(true); updateHud();
+      });
+      row.appendChild(btn);
+      list.appendChild(row);
+    }
+    return;
+  }
   for (const u of ITEMS) {
     if (u.cat !== shopCat) continue;
     const n = lvl(u.id), maxed = n >= u.max, cost = costOf(u);
@@ -1638,6 +1669,7 @@ function drawAmbient(layer, t) {
   for (const a of ambient) {
     if (a.age < 0) continue;
     const fade = Math.min(1, a.age * 2, (a.life - a.age) * 1.5);
+    if (theme.draw.ambient && theme.draw.ambient(a, layer, t, fade)) continue;
     if (layer === 'back') {
       if (a.kind === 'cloud') {
         ctx.fillStyle = 'rgba(255,255,255,' + (0.35 * dl * fade).toFixed(2) + ')';
@@ -1786,7 +1818,7 @@ function drawAmbient(layer, t) {
     for (let i = 0; i < 14; i++) {
       const fx = ((i * 0.137 + t * 0.006 * ((i % 3) + 1)) % 1) * W, fy = soilY - 10 + Math.sin(t * 0.9 + i * 1.7) * 30 + (i % 4) * 12;
       const al = Math.max(0, Math.sin(t * 2.2 + i * 2.1));
-      ctx.fillStyle = 'rgba(220,255,160,' + (0.85 * al).toFixed(2) + ')';
+      ctx.fillStyle = (theme.firefly || 'rgba(220,255,160,') + (0.85 * al).toFixed(2) + ')';
       ctx.beginPath(); ctx.arc(fx, fy, 1.8, 0, Math.PI * 2); ctx.fill();
     }
   }
@@ -3304,8 +3336,136 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       for (let k = 1; k <= 4; k++) { ctx.fillStyle = 'rgba(180,230,255,' + (fade * (0.5 - k * 0.1)).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(c.x - Math.sin(c.age * 1.3 + c.phase - k * 0.2) * 6 * k, c.y - Math.cos(c.age * 1.7 + c.phase - k * 0.2) * 4 * k, 2.5 - k * 0.4, 0, Math.PI * 2); ctx.fill(); }
     }
   }
+  function wizUpgrades(t) {
+    const dl = daylight();
+    if (has('barrel')) {
+      // ether cistern: a glass alembic on a stand, ether swirling inside
+      const x = mailbox.x + mailbox.w + 22, y = soilY;
+      shadow(x + 13, y + 5, 34, 4, 0.2);
+      ctx.fillStyle = stone(70, dl); ctx.fillRect(x + 4, y - 6, 18, 6);
+      ctx.fillStyle = 'rgba(200,230,255,0.35)'; ctx.beginPath(); ctx.arc(x + 13, y - 20, 12, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(120,100,255,' + (0.5 + 0.2 * Math.sin(t * 2)).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(x + 13, y - 20, 12, Math.PI * 0.15, Math.PI * 0.85); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(230,240,255,0.7)'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.arc(x + 13, y - 20, 12, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(200,230,255,0.35)'; ctx.fillRect(x + 10, y - 40, 6, 10); ctx.fillStyle = stone(80, dl); ctx.fillRect(x + 8, y - 42, 10, 3);
+    }
+    const room = gate.x - 8;
+    if (has('compost')) {
+      // ley stone: a standing stone with a glowing rune
+      const x = room - (has('scarecrow') ? 56 : 0) - 40, y = soilY;
+      shadow(x + 12, y + 5, 32, 4, 0.2);
+      ctx.fillStyle = stone(96, dl); ctx.beginPath(); ctx.moveTo(x + 2, y); ctx.lineTo(x + 5, y - 34); ctx.lineTo(x + 16, y - 38); ctx.lineTo(x + 24, y - 30); ctx.lineTo(x + 23, y); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(120,255,180,' + (0.5 + 0.4 * Math.sin(t * 1.5)).toFixed(2) + ')'; ctx.font = '600 13px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ᛟ', x + 13, y - 18);
+    }
+    if (has('scarecrow')) {
+      // warding sigil: a glowing circle on a post that imps do not like
+      const x = room - 28, y = soilY - 2;
+      shadow(x, y + 6, 30, 4, 0.2);
+      ctx.fillStyle = stone(70, dl); ctx.fillRect(x - 2, y - 50, 4, 52);
+      const pulse = 0.6 + 0.4 * Math.sin(t * 2.5);
+      ctx.strokeStyle = 'rgba(255,120,200,' + pulse.toFixed(2) + ')'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(x, y - 62, 11, 0, Math.PI * 2); ctx.stroke();
+      ctx.lineWidth = 1.2; ctx.beginPath(); for (let i = 0; i < 5; i++) { const a1 = -Math.PI / 2 + i * Math.PI * 4 / 5; ctx.lineTo(x + Math.cos(a1) * 11, y - 62 + Math.sin(a1) * 11); } ctx.closePath(); ctx.stroke();
+    }
+    if (has('feeder')) {
+      // astrolabe: brass rings on a stand
+      const x = Math.min(W - 30, gate.x + gate.w + 40), y = soilY - 44;
+      ctx.fillStyle = stone(70, dl); ctx.fillRect(x - 1, y - 6, 2, 50);
+      ctx.strokeStyle = col([220, 180, 90], dl); ctx.lineWidth = 1.5;
+      ctx.beginPath(); ctx.arc(x, y - 14, 9, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(x, y - 14, 9, 3.5, t * 0.6, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); ctx.ellipse(x, y - 14, 3.5, 9, -t * 0.4, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = '#ffd45c'; ctx.beginPath(); ctx.arc(x, y - 14, 1.6, 0, Math.PI * 2); ctx.fill();
+    }
+  }
+  // the wizard's take on the ambient life; anything it returns false for is drawn the garden way
+  function wizAmbient(a, layer, t, fade) {
+    const dl = daylight();
+    if (layer === 'back') {
+      if (a.kind === 'rainbow') {
+        // an aurora instead of a rainbow
+        for (let k = 0; k < 4; k++) {
+          ctx.strokeStyle = 'hsla(' + (150 + k * 40 + t * 10) % 360 + ',80%,70%,' + (0.18 * fade).toFixed(2) + ')'; ctx.lineWidth = 14;
+          ctx.beginPath(); for (let x = -20; x <= W + 20; x += 20) ctx.lineTo(x, 60 + k * 22 + Math.sin(x * 0.01 + t * 0.8 + k) * 26 + Math.sin(x * 0.03 - t * 0.5) * 8); ctx.stroke();
+        }
+        return true;
+      }
+      if (a.kind === 'flock') {
+        // bats
+        ctx.fillStyle = 'rgba(30,20,40,' + (0.75 * fade).toFixed(2) + ')';
+        for (let k = 0; k < a.n; k++) {
+          const bx = a.x + Math.abs(k - (a.n - 1) / 2) * 14, by = a.y + (k - (a.n - 1) / 2) * 7, flap = Math.sin(t * 14 + k) * 4;
+          ctx.beginPath(); ctx.moveTo(bx - 7, by - flap); ctx.quadraticCurveTo(bx - 3, by + 2, bx, by); ctx.quadraticCurveTo(bx + 3, by + 2, bx + 7, by - flap); ctx.lineTo(bx + 4, by + 1); ctx.lineTo(bx, by + 4); ctx.lineTo(bx - 4, by + 1); ctx.closePath(); ctx.fill();
+        }
+        return true;
+      }
+      if (a.kind === 'balloon') {
+        // an airship
+        ctx.save(); ctx.translate(a.x, a.y); ctx.globalAlpha = fade * (0.5 + 0.5 * dl);
+        ctx.fillStyle = col([170, 140, 200], dl); ctx.beginPath(); ctx.ellipse(0, 0, 26, 10, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.3)'; ctx.beginPath(); ctx.ellipse(-6, -3, 14, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = 'rgba(60,40,20,0.8)'; ctx.lineWidth = 0.8; ctx.beginPath(); ctx.moveTo(-10, 8); ctx.lineTo(-8, 16); ctx.moveTo(10, 8); ctx.lineTo(8, 16); ctx.stroke();
+        ctx.fillStyle = col([122, 84, 51], dl); ctx.beginPath(); ctx.moveTo(-14, 16); ctx.lineTo(14, 16); ctx.lineTo(9, 23); ctx.lineTo(-9, 23); ctx.closePath(); ctx.fill();
+        ctx.restore(); return true;
+      }
+      if (a.kind === 'plane') {
+        // a small dragon with a puff of smoke behind it
+        const dir = a.vx > 0 ? 1 : -1, flap = Math.sin(t * 6) * 5;
+        ctx.save(); ctx.translate(a.x, a.y); ctx.scale(dir, 1); ctx.globalAlpha = fade;
+        ctx.fillStyle = col([120, 60, 60], dl); ctx.beginPath(); ctx.ellipse(0, 0, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-9, 0); ctx.lineTo(-18, -1 + Math.sin(t * 3) * 2); ctx.lineTo(-9, 2); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(6, -1); ctx.lineTo(13, -2); ctx.lineTo(11, 1); ctx.closePath(); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(-3, -1); ctx.lineTo(2, -9 - flap); ctx.lineTo(7, -1); ctx.closePath(); ctx.fill();
+        ctx.fillStyle = 'rgba(200,200,210,' + (0.35 * fade).toFixed(2) + ')'; for (let k = 1; k <= 3; k++) { ctx.beginPath(); ctx.arc(-20 - k * 9, Math.sin(t * 2 + k) * 2, 2 + k, 0, Math.PI * 2); ctx.fill(); }
+        ctx.restore(); return true;
+      }
+      return false;
+    }
+    if (a.kind === 'butterfly') {
+      // a glowing sprite
+      ctx.save(); ctx.translate(a.x, a.y); ctx.globalAlpha = fade;
+      const flap = Math.abs(Math.sin(t * 14 + a.phase));
+      const gl = ctx.createRadialGradient(0, 0, 1, 0, 0, 12); gl.addColorStop(0, 'hsla(' + a.hue + ',90%,80%,0.6)'); gl.addColorStop(1, 'hsla(' + a.hue + ',90%,80%,0)'); ctx.fillStyle = gl; ctx.fillRect(-12, -12, 24, 24);
+      ctx.fillStyle = 'hsla(' + a.hue + ',90%,85%,0.8)'; ctx.beginPath(); ctx.ellipse(-4 * flap - 1, -2, 5 * (0.4 + flap * 0.6), 4, -0.5, 0, Math.PI * 2); ctx.ellipse(4 * flap + 1, -2, 5 * (0.4 + flap * 0.6), 4, 0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, 1.8, 0, Math.PI * 2); ctx.fill();
+      ctx.restore(); return true;
+    }
+    if (a.kind === 'ladybug') {
+      // a scarab
+      const p = ambientPos(a);
+      ctx.save(); ctx.translate(p.x, p.y); ctx.globalAlpha = fade; ctx.scale(a.dir, 1);
+      ctx.fillStyle = '#1f9e8a'; ctx.beginPath(); ctx.ellipse(0, 0, 5, 3.6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(140,255,230,0.6)'; ctx.beginPath(); ctx.ellipse(-1, -1, 2.5, 1.5, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#123'; ctx.beginPath(); ctx.arc(4.5, 0, 1.8, 0, Math.PI * 2); ctx.fill();
+      ctx.restore(); return true;
+    }
+    if (a.kind === 'rabbit') {
+      // a toad that hops
+      ctx.save(); ctx.translate(a.x, a.y - Math.abs(Math.sin(a.age * 4)) * 7); ctx.globalAlpha = fade; ctx.scale(a.vx > 0 ? 1 : -1, 1);
+      ctx.fillStyle = col([96, 130, 70], dl); ctx.beginPath(); ctx.ellipse(0, -2, 10, 6, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.beginPath(); ctx.arc(7, -6, 4.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffd45c'; ctx.beginPath(); ctx.arc(8, -9, 1.6, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(8.4, -9, 0.7, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = col([80, 110, 60], dl); ctx.beginPath(); ctx.ellipse(-8, 2, 5, 2.5, 0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.restore(); return true;
+    }
+    if (a.kind === 'seed') {
+      // rising embers instead of dandelion seeds
+      ctx.fillStyle = 'rgba(255,' + Math.floor(120 + 100 * Math.abs(Math.sin(a.age * 3 + a.phase))) + ',60,' + (0.85 * fade).toFixed(2) + ')';
+      ctx.beginPath(); ctx.arc(a.x, a.y - a.age * 6, 1.6, 0, Math.PI * 2); ctx.fill(); return true;
+    }
+    if (a.kind === 'snail') {
+      // a slime on the plinth
+      const p = ambientPos(a);
+      ctx.save(); ctx.translate(p.x, p.y); ctx.globalAlpha = fade * 0.9;
+      const sq = 1 + Math.sin(a.age * 4) * 0.12;
+      ctx.fillStyle = 'rgba(120,230,120,0.85)'; ctx.beginPath(); ctx.ellipse(0, -3 * sq, 7 / sq, 5 * sq, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.beginPath(); ctx.ellipse(-2, -5 * sq, 2, 1.2, -0.4, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#123'; ctx.beginPath(); ctx.arc(-2 * a.dir, -3, 0.9, 0, Math.PI * 2); ctx.arc(2 * a.dir, -3, 0.9, 0, Math.PI * 2); ctx.fill();
+      ctx.restore(); return true;
+    }
+    return false;
+  }
   THEMES.wizard = {
-    id: 'wizard', name: 'Wizard tower', hat: 'wizard',
+    id: 'wizard', name: 'Wizard tower', hat: 'wizard', icon: '🔮', price: 10000000, firefly: 'rgba(180,230,255,',
+    blurb: 'A tower that gains a floor per stage on a rune-carved plinth. Mana, runes, ether, starlight, and ley power; wands and grimoires in the shop; imps, wisps, an observatory, and apprentices in pointy hats.',
     words: {
       title: '🔮 Tower of Claude', place: 'tower grounds', sap: 'mana', seed: 'rune', seeds: 'runes', plant: 'tower', plants: 'towers',
       harvest: 'Ascend', harvested: 'ascended', nothingToHarvest: 'nothing to ascend', sprouted: 'was founded',
@@ -3342,29 +3502,25 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       DAY: [[0.00, [60, 30, 90], [230, 150, 140]], [0.12, [70, 60, 150], [180, 160, 220]], [0.60, [80, 90, 180], [190, 185, 235]], [0.80, [90, 60, 150], [240, 170, 150]], [0.92, [50, 25, 90], [200, 90, 110]], [1.00, [22, 12, 50], [100, 50, 100]]],
       NIGHT: [[8, 6, 26], [40, 24, 72]],
     },
-    draw: { ground: wizGround, planter: wizPlanter, plant: wizTower, greenhouse: wizObservatory, pests: wizImps, critters: wizWisps },
+    draw: { ground: wizGround, planter: wizPlanter, plant: wizTower, greenhouse: wizObservatory, pests: wizImps, critters: wizWisps, upgrades: wizUpgrades, ambient: wizAmbient },
   };
 })();
 
 // Apply a theme: remember it, retitle the static labels, and redraw the shop.
-function applyTheme(id) {
-  theme = THEMES[id] || THEMES.garden;
+function applyTheme(id, preview) {
+  if (!THEMES[id] || (!preview && !themeOwned(id))) id = 'garden';
+  theme = THEMES[id];
   prefs.theme = theme.id; saveJSON(PREF_KEY, prefs);
   $('sap-unit').textContent = W_('sap');
   $('water-label').textContent = W_('water'); $('light-label').textContent = W_('light'); $('nutrients-label').textContent = W_('nutrients');
   $('shop-title').textContent = W_('shopTitle'); $('shop-tab-garden').textContent = W_('shopTab');
-  $('theme').textContent = 'Theme: ' + theme.name;
   shopSig = ''; lastPillSig = '';
   updateHud();
 }
-$('theme').addEventListener('click', () => {
-  const ids = Object.keys(THEMES); const next = ids[(ids.indexOf(theme.id) + 1) % ids.length];
-  applyTheme(next);
-  pushTicker('theme: ' + theme.name, 'you');
-});
 {
+  // ?theme=<id> previews a theme without owning it; otherwise the saved choice, if still owned
   const fromUrl = (location.search.match(/[?&]theme=([a-z]+)/) || [])[1];
-  applyTheme(fromUrl || prefs.theme || 'garden');
+  if (fromUrl) applyTheme(fromUrl, true); else applyTheme(prefs.theme || 'garden');
 }
 
 window.__garden = { critters, particles, plants, garden, ambient, spawnAmbient, deskState, openDesk, sessions: () => sessions, holds: () => pendingHolds, holding: () => holding, letters: () => letters, focused, holdRate, celebrateCommand, hourglass, desk, THEMES, applyTheme, theme: () => theme, hold: (on) => { holding = on && focused() ? { sid: focused().id, x: W / 2, y: H * 0.7, acc: 0 } : null; } };   // debugging handle
