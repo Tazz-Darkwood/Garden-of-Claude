@@ -20,9 +20,9 @@
 <div id="panel">
   <div id="sap-row"><span id="sap">0</span><span id="sap-unit">sap</span><span id="power" title="What one click earns right now"></span></div>
   <div class="meter" title="Keep clicking to build the combo; it drains when you stop"><span class="label" id="combo-label">combo</span><div class="bar"><div id="combo" class="fill combo"></div></div></div>
-  <div class="meter"><span class="label">water</span><div class="bar"><div id="water" class="fill water"></div></div></div>
-  <div class="meter"><span class="label">light</span><div class="bar"><div id="light" class="fill light"></div></div></div>
-  <div class="meter"><span class="label">nutrients</span><div class="bar"><div id="nutrients" class="fill nutrients"></div></div></div>
+  <div class="meter"><span class="label" id="water-label">water</span><div class="bar"><div id="water" class="fill water"></div></div></div>
+  <div class="meter"><span class="label" id="light-label">light</span><div class="bar"><div id="light" class="fill light"></div></div></div>
+  <div class="meter"><span class="label" id="nutrients-label">nutrients</span><div class="bar"><div id="nutrients" class="fill nutrients"></div></div></div>
   <div class="meter"><span class="label" id="stage">seed</span><div class="bar"><div id="growth" class="fill growth"></div></div></div>
   <div class="meter" id="context-row" title="How full Claude's context is; it is also shown under each plant's name tag"><span class="label" id="context-label">context</span><div class="bar"><div id="context" class="fill ctx"></div></div></div>
   <div id="seeds">no seeds yet</div>
@@ -32,6 +32,7 @@
     <button id="shop-open" title="Spend sap on upgrades">Shop</button>
     <button id="journal-open" title="Everything Claude said and did this session, in order">Journal</button>
     <button id="stats-open" title="Where the sap and seeds come from, minute by minute">Stats</button>
+    <button id="theme" title="Switch the look of the game; the numbers stay the same">Theme: Garden</button>
     <button id="harvest" title="Harvest a fruiting plant for seeds, which raise your click power for good; you get a new random plant">Harvest</button>
     <button id="quit" class="quiet" title="Close the garden and stop its server. It starts again with your next Claude session.">Quit</button>
   </div>
@@ -73,7 +74,7 @@
 <div id="shop" class="hidden">
   <div id="shop-card">
     <div id="shop-head"><div id="shop-title">Garden shop</div><div id="shop-seeds"></div><button id="shop-close" title="Close">&#215;</button></div>
-    <div id="shop-tabs"><button data-cat="tool" class="on">Tools</button><button data-cat="skill">Skill</button><button data-cat="garden">Garden</button></div>
+    <div id="shop-tabs"><button data-cat="tool" class="on">Tools</button><button data-cat="skill">Skill</button><button data-cat="garden" id="shop-tab-garden">Garden</button></div>
     <div id="shop-list"></div>
     <div id="shop-foot">Tools add flat click power and cost 15% more each level, doubling at 25, 50, and 100. Skill upgrades sharpen combos, crits, and the windows Claude's work opens. Nothing here clicks for you; the mouse saver only repeats while you hold the button.</div>
   </div>

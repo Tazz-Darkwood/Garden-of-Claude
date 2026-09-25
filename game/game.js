@@ -16,11 +16,35 @@ for (const k of ['claude-garden-v1', 'claude-garden-v2', 'claude-garden-v3', 'cl
 
 // Plant stages: seven named ones, then it keeps going geometrically until you harvest.
 const STAGE_NAMES = ['seed', 'sprout', 'seedling', 'young plant', 'bush', 'flowering', 'fruiting', 'wild', 'overgrown', 'glowing', 'enchanted', 'monstrous', 'ancient', 'mythic'];
+
+// ---------- themes ----------
+// A theme is a set of optional overrides over the garden baseline: the words the
+// interface uses, names for shop items and species, a sky palette, and canvas
+// renderers (theme.draw.<name>). Anything a theme leaves out falls back to the
+// garden. The economy, the hooks, and the save are the same in every theme.
+const GARDEN_WORDS = {
+  title: '🌱 Garden of Claude', place: 'garden', sap: 'sap', seed: 'seed', seeds: 'seeds', plant: 'plant', plants: 'plants',
+  harvest: 'Harvest', harvested: 'harvested', nothingToHarvest: 'nothing to harvest', sprouted: 'sprouted',
+  water: 'water', light: 'light', nutrients: 'nutrients', sunbeam: 'sunbeam', puddle: 'puddle', greenhouse: 'greenhouse',
+  crowLanded: 'a crow landed', crowTitle: 'A crow', birdTitle: 'A passing bird', birdFloat: '🐦 +',
+  beeTitle: 'A bee', beeTip: 'Click it to pollinate the plant for a bonus before it flies off.', beeVisit: 'a bee is visiting', beeFloat: '🐝 pollinated +',
+  shopTitle: 'Garden shop', shopTab: 'Garden', stages: STAGE_NAMES,
+};
+const THEMES = {};
+let theme = { id: 'garden', name: 'Garden', words: GARDEN_WORDS, items: {}, species: {}, draw: {} };
+THEMES.garden = theme;
+function W_(k) { return theme.words && theme.words[k] != null ? theme.words[k] : GARDEN_WORDS[k]; }
+function R_(name, fn) { return (theme.draw && theme.draw[name]) || fn; }
+function itemName(u) { const o = theme.items && theme.items[u.id]; return (o && o.name) || u.name; }
+function itemIcon(u) { const o = theme.items && theme.items[u.id]; return (o && o.icon) || u.icon; }
+function itemDesc(u) { const o = theme.items && theme.items[u.id]; return (o && o.desc) || u.desc; }
+function speciesName(sp) { const o = theme.species && theme.species[sp.id]; return (o && o.name) || sp.name; }
+function speciesBlurb(sp) { const o = theme.species && theme.species[sp.id]; return (o && o.blurb) || sp.blurb; }
 const STAGES = [0, 15, 50, 130, 300, 600, 1100];
 while (STAGES.length < 40) STAGES.push(Math.round(STAGES[STAGES.length - 1] * 2.2));
 const FRUITING = 6;
 function stageIndex(g) { let i = 0; for (let k = 0; k < STAGES.length; k++) if (g >= STAGES[k]) i = k; return i; }
-function stageName(i) { return i < STAGE_NAMES.length ? STAGE_NAMES[i] : 'mythic ' + toRoman(i - STAGE_NAMES.length + 2); }
+function stageName(i) { const names = W_('stages'); return i < names.length ? names[i] : names[names.length - 1] + ' ' + toRoman(i - names.length + 2); }
 function toRoman(n) { const t = [[10, 'X'], [9, 'IX'], [5, 'V'], [4, 'IV'], [1, 'I']]; let s = ''; for (const [v, r] of t) while (n >= v) { s += r; n -= v; } return s; }
 function stageProgress(g) {
   const i = stageIndex(g);
@@ -562,8 +586,8 @@ function pestsOn(sid) { return pests.filter((p) => p.sid === sid).length; }
 
 function windowMult(sid) {
   let m = 1, why = '';
-  if (sunbeams[sid] && sunbeams[sid] > Date.now()) { m *= sunbeamMult(); why = 'sunbeam'; }
-  if (lastRain[sid] && Date.now() - lastRain[sid] < 6000) { m *= puddleMult(); why = why ? why + '+puddle' : 'puddle'; }
+  if (sunbeams[sid] && sunbeams[sid] > Date.now()) { m *= sunbeamMult(); why = W_('sunbeam'); }
+  if (lastRain[sid] && Date.now() - lastRain[sid] < 6000) { m *= puddleMult(); why = why ? why + '+' + W_('puddle') : W_('puddle'); }
   return { m, why };
 }
 
@@ -605,7 +629,7 @@ function ingest(ev, quiet) {
   } else if (name === 'PostToolUseFailure') {
     if (!quiet) addPest(sid);
     const s = ev.summary || { text: prettyTool(ev.tool_name || 'tool') + ' failed', detail: '' };
-    pushTicker(who + ' · ' + s.text + (quiet ? '' : ' · a crow landed'), 'alert', s.detail);
+    pushTicker(who + ' · ' + s.text + (quiet ? '' : ' · ' + W_('crowLanded')), 'alert', s.detail);
     addEntry(sid, 'fail', s.text, s.detail);
     if (!quiet) fly(s.text, TAG_COLORS.fail);
   } else if (name === 'UserPromptSubmit') {
@@ -673,17 +697,17 @@ function harvest(sid, who, auto) {
   const stage = stageName(plantStage(p));
   garden.seeds += gained; garden.harvests++;
   const r = rects[sid];
-  if (r) floaters.push({ x: r.cx, y: soilY - 40, text: gained ? '+' + gained + ' seed' + (gained > 1 ? 's' : '') : 'nothing to harvest', age: 0, cls: 'crit' });
-  pushTicker(who + ' · harvested a ' + stage + ' plant for ' + gained + ' seed' + (gained === 1 ? '' : 's'), 'you');
+  if (r) floaters.push({ x: r.cx, y: soilY - 40, text: gained ? '+' + gained + ' ' + (gained > 1 ? W_('seeds') : W_('seed')) : W_('nothingToHarvest'), age: 0, cls: 'crit' });
+  pushTicker(who + ' · ' + W_('harvested') + ' a ' + stage + ' ' + W_('plant') + ' for ' + gained + ' ' + (gained === 1 ? W_('seed') : W_('seeds')), 'you');
   ledger.seeds += gained;
-  recordEvent((auto ? 'session ended: ' : '') + 'harvested ' + stage + ' plant in ' + who + ' (' + fmt(p.sap) + ' sap) for ' + gained + ' seed' + (gained === 1 ? '' : 's'), gained);
+  recordEvent((auto ? 'session ended: ' : '') + W_('harvested') + ' ' + stage + ' ' + W_('plant') + ' in ' + who + ' (' + fmt(p.sap) + ' ' + W_('sap') + ') for ' + gained + ' ' + (gained === 1 ? W_('seed') : W_('seeds')), gained);
   if (auto) delete plants[sid];
   else {
     p.sap = 0; p.grown = 0; p.clicks = 0; p.born = Date.now(); p.species = pickSpecies();
     const sp = SPECIES[p.species];
-    pushTicker(who + ' · a ' + sp.name.toLowerCase() + ' sprouted (' + RARITY[sp.rarity].name.toLowerCase() + ')', sp.rarity === 'common' ? 'you' : 'ok');
-    recordEvent('replanted: ' + sp.name + ' (' + RARITY[sp.rarity].name + ')', 0);
-    if (r) floaters.push({ x: r.cx, y: soilY - 70, text: sp.name + ' · ' + RARITY[sp.rarity].name, age: 0, cls: sp.rarity === 'common' ? '' : 'crit' });
+    pushTicker(who + ' · a ' + speciesName(sp).toLowerCase() + ' ' + W_('sprouted') + ' (' + RARITY[sp.rarity].name.toLowerCase() + ')', sp.rarity === 'common' ? 'you' : 'ok');
+    recordEvent('replanted: ' + speciesName(sp) + ' (' + RARITY[sp.rarity].name + ')', 0);
+    if (r) floaters.push({ x: r.cx, y: soilY - 70, text: speciesName(sp) + ' · ' + RARITY[sp.rarity].name, age: 0, cls: sp.rarity === 'common' ? '' : 'crit' });
   }
 }
 
@@ -735,9 +759,9 @@ function updateHud() {
   const status = $('status');
   const focHeld = focused() && pendingHolds[focused().id];
   status.className = 'pill ' + (connected ? (mode === 'your_turn' && focHeld ? 'your_turn' : mode) : 'offline');
-  status.textContent = closed ? 'garden closed' : connected ? (mode === 'your_turn' && focHeld ? 'Claude is idle · desk is open' : MODE_LABEL[mode]) : 'server offline';
+  status.textContent = closed ? W_('place') + ' closed' : connected ? (mode === 'your_turn' && focHeld ? 'Claude is idle · desk is open' : MODE_LABEL[mode]) : 'server offline';
   if (!armed.quit && $('quit').textContent !== 'Quit') $('quit').textContent = 'Quit';
-  document.title = mode === 'needs_you' ? '⚠ Claude needs you' : unread ? '✉ Claude asked you something' : mode === 'stalled' ? '⚠ Claude went quiet' : '🌱 Garden of Claude';
+  document.title = mode === 'needs_you' ? '⚠ Claude needs you' : unread ? '✉ Claude asked you something' : mode === 'stalled' ? '⚠ Claude went quiet' : W_('title');
   $('board').style.bottom = ($('panel').offsetHeight + 20) + 'px';
   if (focused() && focused().id !== boardSid) renderBoard();
 
@@ -789,21 +813,21 @@ function updateHud() {
   const wait = plant ? nextStageIn(plant) : null;
   const thirsty = plant && growthSpeed(plant) <= 0;
   const sp = plant ? speciesOf(plant) : null;
-  $('stage').textContent = plant ? stageName(si) + ' ×' + yieldMult(plant).toFixed(1) + (pestCount ? ' 🐦' : '') + (thirsty ? ' 🥵' : '') : 'no plant';
+  $('stage').textContent = plant ? stageName(si) + ' ×' + yieldMult(plant).toFixed(1) + (pestCount ? ' 🐦' : '') + (thirsty ? ' 🥵' : '') : 'no ' + W_('plant');
   $('stage').style.color = sp && sp.rarity !== 'common' ? RARITY[sp.rarity].color : '';
-  $('stage').title = plant ? sp.name + ' (' + RARITY[sp.rarity].name + '): ' + sp.blurb + ' This ' + stageName(si) + ' plant multiplies every click by ' + yieldMult(plant).toFixed(1) + '. ' + (thirsty ? 'It is not growing: its meters are too low. Claude’s reads, writes, and commands fill them.' : wait != null ? 'Next stage in about ' + Math.floor(wait / 60) + 'm ' + (wait % 60) + 's at the current meters.' : '') + ' Harvest trades the multiplier for permanent seeds and a new random plant.' : '';
+  $('stage').title = plant ? speciesName(sp) + ' (' + RARITY[sp.rarity].name + '): ' + speciesBlurb(sp) + ' This ' + stageName(si) + ' ' + W_('plant') + ' multiplies every click by ' + yieldMult(plant).toFixed(1) + '. ' + (thirsty ? 'It is not growing: its meters are too low. Claude’s reads, writes, and commands fill them.' : wait != null ? 'Next stage in about ' + Math.floor(wait / 60) + 'm ' + (wait % 60) + 's at the current meters.' : '') + ' Harvest trades the multiplier for permanent seeds and a new random plant.' : '';
   $('growth').style.width = (plant ? plantProgress(plant) * 100 : 0).toFixed(1) + '%';
   const owned = ITEMS.filter((u) => has(u.id)).length;
-  $('seeds').textContent = garden.seeds + ' seed' + (garden.seeds === 1 ? '' : 's') + ' (+' + Math.round((seedBonus() - 1) * 100) + '% clicks) · ' + fmt(garden.lifetime) + ' lifetime sap · ' + owned + '/' + ITEMS.length + ' items' + (isWriter ? '' : adoptedRemote ? ' · mirroring another window' : '');
+  $('seeds').textContent = garden.seeds + ' ' + (garden.seeds === 1 ? W_('seed') : W_('seeds')) + ' (+' + Math.round((seedBonus() - 1) * 100) + '% clicks) · ' + fmt(garden.lifetime) + ' lifetime ' + W_('sap') + ' · ' + owned + '/' + ITEMS.length + ' items' + (isWriter ? '' : adoptedRemote ? ' · mirroring another window' : '');
   const shopLabel = 'Shop' + (ITEMS.some((u) => lvl(u.id) < u.max && garden.sap >= costOf(u)) ? ' •' : '');
   if ($('shop-open').textContent !== shopLabel) $('shop-open').textContent = shopLabel;
   const hv = $('harvest');
   const ready = plant && si >= FRUITING;
   hv.disabled = !ready;
   hv.classList.toggle('ready', Boolean(ready));
-  const hvLabel = ready ? 'Harvest +' + seedsFor(plant) : 'Harvest';
+  const hvLabel = ready ? W_('harvest') + ' +' + seedsFor(plant) : W_('harvest');
   if (!hv.classList.contains('armed') && hv.textContent !== hvLabel) hv.textContent = hvLabel;
-  hv.title = plant ? (ready ? 'Harvest this ' + stageName(si) + ' plant for ' + seedsFor(plant) + ' seeds and start over from a seed. You lose its ×' + yieldMult(plant).toFixed(1) + ' click multiplier; you keep the seeds forever.' : 'A plant can be harvested once it is fruiting, about ' + (FRUITING * STAGE_MINUTES) + ' minutes of healthy growth.') : '';
+  hv.title = plant ? (ready ? W_('harvest') + ' this ' + stageName(si) + ' ' + W_('plant') + ' for ' + seedsFor(plant) + ' ' + W_('seeds') + ' and start over from a ' + W_('seed') + '. You lose its ×' + yieldMult(plant).toFixed(1) + ' click multiplier; you keep the ' + W_('seeds') + ' forever.' : 'A ' + W_('plant') + ' can be ' + W_('harvested') + ' once it is ' + W_('stages')[FRUITING] + ', about ' + (FRUITING * STAGE_MINUTES) + ' minutes of healthy growth.') : '';
   if (!$('shop').classList.contains('hidden')) renderShop();
 
   const pauseBtn = $('pause');
@@ -816,7 +840,7 @@ function updateHud() {
   const att = $('attention');
   if (closed) {
     att.className = 'calm'; att.style.pointerEvents = 'none';
-    $('attention-title').textContent = 'The garden is closed';
+    $('attention-title').textContent = 'The ' + W_('place') + ' is closed';
     $('attention-note').textContent = 'Its server has stopped. It starts again with your next Claude session, or with npm start.';
   } else if (connected && mode === 'needs_you') {
     att.className = ''; att.style.pointerEvents = 'none';
@@ -848,7 +872,7 @@ function setFocus(id) {
 // ---------- shop ----------
 let shopCat = 'tool';
 function renderShop(force) {
-  $('shop-seeds').textContent = fmt(garden.sap) + ' sap';
+  $('shop-seeds').textContent = fmt(garden.sap) + ' ' + W_('sap');
   // Rebuild rows only when a level or an affordability changes, so buttons stay
   // stable under the mouse (a rebuilt button cannot be clicked).
   const sig = shopCat + '|' + ITEMS.map((u) => lvl(u.id) + (garden.sap >= costOf(u) ? 'a' : 'x')).join(',');
@@ -861,16 +885,16 @@ function renderShop(force) {
     if (u.cat !== shopCat) continue;
     const n = lvl(u.id), maxed = n >= u.max, cost = costOf(u);
     const row = document.createElement('div'); row.className = 'upgrade' + (n > 0 ? ' owned' : '');
-    const icon = document.createElement('div'); icon.className = 'icon'; icon.textContent = u.icon; row.appendChild(icon);
+    const icon = document.createElement('div'); icon.className = 'icon'; icon.textContent = itemIcon(u); row.appendChild(icon);
     const text = document.createElement('div'); text.className = 'text';
     const name = document.createElement('div'); name.className = 'name';
-    name.textContent = u.name + (u.max > 1 ? ' ' : '') ;
+    name.textContent = itemName(u) + (u.max > 1 ? ' ' : '') ;
     if (u.max > 1) { const l = document.createElement('span'); l.className = 'lvl'; l.textContent = 'lv ' + n + (u.max < 999 ? '/' + u.max : ''); name.appendChild(l); }
     const desc = document.createElement('div'); desc.className = 'desc';
-    desc.textContent = u.desc + (u.cat === 'tool' && n ? ' Now +' + fmt(toolPower(u)) + '.' + (n < 10 ? ' Doubles at level 10.' : n < 25 ? ' Doubles again at 25.' : n < 50 ? ' Doubles again at 50.' : '') : '');
+    desc.textContent = itemDesc(u) + (u.cat === 'tool' && n ? ' Now +' + fmt(toolPower(u)) + '.' + (n < 10 ? ' Doubles at level 10.' : n < 25 ? ' Doubles again at 25.' : n < 50 ? ' Doubles again at 50.' : '') : '');
     text.appendChild(name); text.appendChild(desc); row.appendChild(text);
     const btn = document.createElement('button');
-    btn.textContent = maxed ? (u.max === 1 ? 'Owned' : 'Maxed') : fmt(cost) + ' sap';
+    btn.textContent = maxed ? (u.max === 1 ? 'Owned' : 'Maxed') : fmt(cost) + ' ' + W_('sap');
     btn.disabled = maxed || garden.sap < cost;
     btn.addEventListener('click', () => {
       if (lvl(u.id) >= u.max || garden.sap < costOf(u)) return;
@@ -878,9 +902,9 @@ function renderShop(force) {
       claimWriter();
       garden.sap -= paid; garden.levels[u.id] = lvl(u.id) + 1;
       ledger.spent += paid;
-      recordEvent('bought ' + u.name.toLowerCase() + (u.max > 1 ? ' lv ' + lvl(u.id) : '') + ' for ' + fmt(paid) + ' sap', -paid);
+      recordEvent('bought ' + itemName(u).toLowerCase() + (u.max > 1 ? ' lv ' + lvl(u.id) : '') + ' for ' + fmt(paid) + ' ' + W_('sap'), -paid);
       saveJSON(SAVE_KEY, garden);
-      pushTicker('you bought ' + u.name.toLowerCase() + (u.max > 1 ? ' lv ' + lvl(u.id) : ''), 'you');
+      pushTicker('you bought ' + itemName(u).toLowerCase() + (u.max > 1 ? ' lv ' + lvl(u.id) : ''), 'you');
       renderShop(true); updateHud();
     });
     row.appendChild(btn);
@@ -920,12 +944,12 @@ function renderStats() {
   $('stats-meta').textContent = 'tracking since ' + new Date(firstMin * 60000).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) + ' · ' + spanMin + ' min';
 
   const tiles = [
-    [fmt(garden.sap), 'sap in hand'],
+    [fmt(garden.sap), W_('sap') + ' in hand'],
     [fmt(tot(last5) / 5) + '/min', 'income, last 5 min'],
     [fmt(tot(last60) / Math.min(60, spanMin)) + '/min', 'income, last hour'],
     [(last5.clicks / 5).toFixed(1) + '/min', 'clicks, last 5 min'],
     [fmt(clickPower()), 'click power'],
-    [garden.seeds + ' (' + ledger.seeds + ' earned)', 'seeds'],
+    [garden.seeds + ' (' + ledger.seeds + ' earned)', W_('seeds')],
   ];
   $('stats-rates').innerHTML = tiles.map(([v, k]) => '<div class="tile"><div class="v">' + esc(v) + '</div><div class="k">' + esc(k) + '</div></div>').join('');
 
@@ -1005,7 +1029,7 @@ $('quit').addEventListener('click', () => armedClick('quit', 'Sure? Stop the ser
 $('harvest').addEventListener('click', () => {
   const s = focused(); const p = s && plants[s.id];
   if (!p || stageIndex(p.sap) < FRUITING) return;
-  armedClick('harvest', 'Sure? +' + seedsFor(p) + ' seeds', () => { claimWriter(); harvest(s.id, sessionLabel(s), false); updateHud(); });
+  armedClick('harvest', 'Sure? +' + seedsFor(p) + ' ' + W_('seeds'), () => { claimWriter(); harvest(s.id, sessionLabel(s), false); updateHud(); });
 });
 
 // ---------- letters ----------
@@ -1208,7 +1232,7 @@ function connect() {
       dawnFlash = Math.max(dawnFlash, 0.8);
     }
     if (msg.compactAt) compactAt = msg.compactAt;
-    if (msg.type === 'quit') { closed = true; connected = false; es.close(); pushTicker('the garden was closed from the Quit button', 'alert'); updateHud(); return; }
+    if (msg.type === 'quit') { closed = true; connected = false; es.close(); pushTicker('the ' + W_('place') + ' was closed from the Quit button', 'alert'); updateHud(); return; }
     if (msg.type === 'snapshot') {
       const items = [...(msg.recent || []).slice(-40).map((e) => ({ at: e.received_at || 0, ev: e })), ...(msg.notes || []).map((n) => ({ at: n.at || 0, note: n }))].sort((a, b) => a.at - b.at);
       for (const it of items) { if (it.ev) ingest(it.ev, true); else ingestNote(it.note, true); }
@@ -1282,7 +1306,7 @@ function catchBird(i, x, y) {
   const b = particles.splice(i, 1)[0];
   const sid = (b.sid && plants[b.sid]) ? b.sid : (focused() ? focused().id : null);
   if (!sid) return;
-  earn(sid, TUNING.bird * clickPower() * birdMult(), x, y, '🐦 +', 'crit', 'bird');
+  earn(sid, TUNING.bird * clickPower() * birdMult(), x, y, W_('birdFloat'), 'crit', 'bird');
   for (let k = 0; k < 6; k++) particles.push({ kind: 'spark', text: '', x: x + (Math.random() - 0.5) * 30, y, vx: (Math.random() - 0.5) * 120, vy: -40 - Math.random() * 80, age: 0, life: 0.8, size: 3 });
 }
 
@@ -1370,11 +1394,11 @@ function updateTip() {
       : st.mode === 'later' ? 'Claude is idle in the app, and only the app can start a new turn. A note left here goes in with your next app message.' + (queuedNotes[st.s.id] ? '\nA note is already waiting.' : '')
       : 'No session to write to. Start one in the Claude app.';
   } else if (hitPest(hover.x, hover.y) >= 0) {
-    head = 'A crow'; body = 'A tool call failed here.' + (has('greenhouse') ? ' The greenhouse keeps it harmless.' : ' The trickle is halved while it stays.') + '\nClick to shoo it for ' + fmt(10 * clickPower()) + ' sap.';
+    head = W_('crowTitle'); body = 'A tool call failed here.' + (has('greenhouse') ? ' The ' + W_('greenhouse') + ' keeps it harmless.' : ' The trickle is halved while it stays.') + '\nClick to shoo it for ' + fmt(10 * clickPower()) + ' ' + W_('sap') + '.';
   } else if (hitBird(hover.x, hover.y) >= 0) {
-    head = 'A passing bird'; body = 'Catch it for ' + fmt(20 * clickPower() * birdMult()) + ' sap.';
+    head = W_('birdTitle'); body = 'Catch it for ' + fmt(20 * clickPower() * birdMult()) + ' ' + W_('sap') + '.';
   } else if (hitCritter(hover.x, hover.y) >= 0) {
-    head = 'A bee'; body = 'Click it to pollinate the plant for a bonus before it flies off.';
+    head = W_('beeTitle'); body = W_('beeTip');
   } else if (hitAmbient(hover.x, hover.y) >= 0) {
     const a = ambient[hitAmbient(hover.x, hover.y)];
     head = a.kind === 'star' ? 'A shooting star' : a.kind === 'butterfly' ? 'A butterfly' : a.kind === 'cat' ? 'A cat' : a.kind === 'snail' ? 'A snail' : 'A ladybug';
@@ -1385,9 +1409,9 @@ function updateTip() {
       const s = sessions[sid], p = plants[sid];
       const wm = windowMult(sid);
       const sp = speciesOf(p);
-      head = sessionLabel(s) + ' · ' + sp.name + ' (' + RARITY[sp.rarity].name.toLowerCase() + ') · ' + stageName(plantStage(p));
+      head = sessionLabel(s) + ' · ' + speciesName(sp) + ' (' + RARITY[sp.rarity].name.toLowerCase() + ') · ' + stageName(plantStage(p));
       const wait = nextStageIn(p);
-      body = sp.blurb + '\nyield ×' + yieldMult(p).toFixed(1) + ' · ' + fmt(p.sap) + ' sap drawn · meters ×' + meterFactor(p).toFixed(2) + (wm.m > 1 ? ' · ' + wm.why + ' ×' + wm.m : '') + (wait != null ? '\nnext stage in ' + Math.floor(wait / 60) + 'm ' + (wait % 60) + 's' : '\nnot growing: meters too low') + '\nclick to tend';
+      body = speciesBlurb(sp) + '\nyield ×' + yieldMult(p).toFixed(1) + ' · ' + fmt(p.sap) + ' ' + W_('sap') + ' drawn · meters ×' + meterFactor(p).toFixed(2) + (wm.m > 1 ? ' · ' + wm.why + ' ×' + wm.m : '') + (wait != null ? '\nnext stage in ' + Math.floor(wait / 60) + 'm ' + (wait % 60) + 's' : '\nnot growing: meters too low') + '\nclick to tend';
     }
   }
   if (!head) { tip.className = 'hidden'; return; }
@@ -1467,7 +1491,7 @@ function tickCritters(dt, held) {
     critterClock = 25 + Math.random() * 25;
     const r = rects[s.id];
     critters.push({ kind: 'bee', sid: s.id, x: r.cx + (Math.random() - 0.5) * 60, y: r.y - H * 0.25 * Math.max(0.6, r.scale), age: 0, life: 9 + Math.random() * 4, phase: Math.random() * 6 });
-    fly('a bee is visiting ' + sessionLabel(s), '#ffcb5c');
+    fly(W_('beeVisit') + ' ' + sessionLabel(s), '#ffcb5c');
   }
   for (let i = critters.length - 1; i >= 0; i--) {
     const c = critters[i]; c.age += dt;
@@ -1480,7 +1504,7 @@ function hitCritter(x, y) { for (let i = critters.length - 1; i >= 0; i--) { con
 function catchCritter(i, x, y) {
   const c = critters.splice(i, 1)[0];
   if (!plants[c.sid]) return;
-  earn(c.sid, 15 * clickPower() * yieldMult(plants[c.sid]) * birdMult(), x, y, '🐝 pollinated +', 'crit', 'bird');
+  earn(c.sid, 15 * clickPower() * yieldMult(plants[c.sid]) * birdMult(), x, y, W_('beeFloat'), 'crit', 'bird');
   for (let k = 0; k < 6; k++) particles.push({ kind: 'spark', text: '', x: x + (Math.random() - 0.5) * 30, y, vx: (Math.random() - 0.5) * 120, vy: -40 - Math.random() * 80, age: 0, life: 0.8, size: 3 });
 }
 // ---------- ambient life: things that just happen ----------
@@ -1796,14 +1820,17 @@ const DAY = [
   [1.00, [22, 18, 52], [130, 60, 65]],
 ];
 const NIGHT = [[10, 14, 34], [34, 44, 78]];
+const dayTable = () => (theme.palette && theme.palette.DAY) || DAY;
+const nightTable = () => (theme.palette && theme.palette.NIGHT) || NIGHT;
 function dayColors(f) {
-  for (let i = 1; i < DAY.length; i++) {
-    if (f <= DAY[i][0]) {
-      const t = (f - DAY[i - 1][0]) / (DAY[i][0] - DAY[i - 1][0]);
-      return [mix(DAY[i - 1][1], DAY[i][1], t), mix(DAY[i - 1][2], DAY[i][2], t)];
+  const D = dayTable();
+  for (let i = 1; i < D.length; i++) {
+    if (f <= D[i][0]) {
+      const t = (f - D[i - 1][0]) / (D[i][0] - D[i - 1][0]);
+      return [mix(D[i - 1][1], D[i][1], t), mix(D[i - 1][2], D[i][2], t)];
     }
   }
-  return [DAY[DAY.length - 1][1], DAY[DAY.length - 1][2]];
+  return [D[D.length - 1][1], D[D.length - 1][2]];
 }
 
 function skyIsDark() { return !connected || isNight() || dayFraction() > 0.92 || mode === 'idle' || weather.rain > 0.5; }
@@ -1811,7 +1838,7 @@ function skyIsDark() { return !connected || isNight() || dayFraction() > 0.92 ||
 function skyColors(t) {
   let top, bottom;
   if (!connected) { top = [20, 22, 34]; bottom = [50, 54, 70]; }
-  else if (isNight()) { top = NIGHT[0]; bottom = NIGHT[1]; }
+  else if (isNight()) { top = nightTable()[0]; bottom = nightTable()[1]; }
   else { [top, bottom] = dayColors(dayFraction()); }
   if (connected && mode === 'needs_you') {
     const pulse = 0.5 + 0.5 * Math.sin(t * 4);
@@ -1847,7 +1874,7 @@ function drawSky(t) {
   if (connected && night) {
     const mx = W * 0.78, my = H * 0.18, r = 22;
     ctx.fillStyle = 'rgba(235,238,250,0.95)'; ctx.beginPath(); ctx.arc(mx, my, r, 0, Math.PI * 2); ctx.fill();
-    ctx.fillStyle = rgb(NIGHT[0]); ctx.beginPath(); ctx.arc(mx - 9, my - 5, r * 0.85, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = rgb(nightTable()[0]); ctx.beginPath(); ctx.arc(mx - 9, my - 5, r * 0.85, 0, Math.PI * 2); ctx.fill();
   } else if (connected) {
     const sx = W * 0.08 + f * W * 0.84;
     const sy = H * 0.62 - Math.sin(f * Math.PI) * H * 0.5;
@@ -1894,7 +1921,7 @@ function drawWindows(t) {
       ctx.fillStyle = 'rgba(120,180,255,' + (0.35 * a).toFixed(2) + ')';
       ctx.beginPath(); ctx.ellipse(r.cx, r.y - 3, r.w / 2 - 6, 7, 0, 0, Math.PI * 2); ctx.fill();
       ctx.fillStyle = 'rgba(200,230,255,' + a.toFixed(2) + ')'; ctx.font = 'bold 11px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('puddle ×' + puddleMult(), r.cx, r.y + 16 + Math.sin(t * 4) * 1.5);
+      ctx.fillText(W_('puddle') + ' ×' + puddleMult(), r.cx, r.y + 16 + Math.sin(t * 4) * 1.5);
     }
   }
 }
@@ -1981,6 +2008,7 @@ const SPECIES = {
   crystalfern: { name: 'Crystal fern', rarity: 'epic', weight: 2, shape: 'fronds', yield: 1.3, water: 1, light: 0.8, blurb: 'Translucent glowing fronds. Yields 30% more.' },
   moonbloom: { name: 'Moonbloom', rarity: 'legendary', weight: 0.5, shape: 'moon', yield: 1.6, water: 0.8, light: 0.8, blurb: 'A single silver bloom that opens wider with every stage. Yields 60% more.' },
 };
+for (const [id, sp] of Object.entries(SPECIES)) sp.id = id;
 function pickSpecies(rand) {
   const roll = (rand || Math.random)() * Object.values(SPECIES).reduce((a, s) => a + s.weight, 0);
   let acc = 0;
@@ -3015,36 +3043,36 @@ function drawGallery(t) {
 function draw(t) {
   if (GALLERY) { drawGallery(t); return; }
   layout();
-  drawSky(t);
+  R_('sky', drawSky)(t);
   drawAmbient('back', t);
-  drawGround(t);
-  drawGreenhouse(t);
-  drawWindows(t);
+  R_('ground', drawGround)(t);
+  R_('greenhouse', drawGreenhouse)(t);
+  R_('windows', drawWindows)(t);
   drawParticles('back');
-  drawGate(t);
-  drawMailbox(t);
+  R_('gate', drawGate)(t);
+  R_('mailbox', drawMailbox)(t);
   shadow(desk.x + desk.w / 2, desk.y + 4, desk.w + 16, 4, 0.18);
-  drawDesk(t);
-  drawHourglass(t);
+  R_('desk', drawDesk)(t);
+  R_('hourglass', drawHourglass)(t);
   const foc = focused();
   const order = liveSessions().sort((a, b) => a.firstSeen - b.firstSeen);
   if (!order.length && placeholderRect) {
-    drawPlanter(placeholderRect, null, null, false);
+    R_('planter', drawPlanter)(placeholderRect, null, null, false);
     ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = '12px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText('waiting for a session', placeholderRect.cx, placeholderRect.y + placeholderRect.h / 2);
   }
   for (const s of order) {
     const r = rects[s.id]; if (!r) continue;
     const plant = plantFor(s.id);
-    drawPlanter(r, s, plant, foc && foc.id === s.id);
-    drawStake(r, s);
-    drawPlant(r, s.id, t + (s.firstSeen % 1000) / 300, plant, s.status === 'needs_you' ? 0.35 : 0);
-    drawLantern(r, s, t);
-    drawGardeners(r, s, t);
+    R_('planter', drawPlanter)(r, s, plant, foc && foc.id === s.id);
+    R_('stake', drawStake)(r, s);
+    R_('plant', drawPlant)(r, s.id, t + (s.firstSeen % 1000) / 300, plant, s.status === 'needs_you' ? 0.35 : 0);
+    R_('lantern', drawLantern)(r, s, t);
+    R_('gardeners', drawGardeners)(r, s, t);
   }
-  drawUpgrades(t);
-  drawPests(t);
-  drawCritters(t);
+  R_('upgrades', drawUpgrades)(t);
+  R_('pests', drawPests)(t);
+  R_('critters', drawCritters)(t);
   drawAmbient('front', t);
   drawParticles('front');
   drawFloaters();
@@ -3058,7 +3086,28 @@ function frame(now) {
   requestAnimationFrame(frame);
 }
 if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).style.display = 'none'; }
-window.__garden = { critters, particles, plants, garden, ambient, spawnAmbient, deskState, openDesk, sessions: () => sessions, holds: () => pendingHolds, holding: () => holding, letters: () => letters, focused, holdRate, celebrateCommand, hourglass, desk, hold: (on) => { holding = on && focused() ? { sid: focused().id, x: W / 2, y: H * 0.7, acc: 0 } : null; } };   // debugging handle
+// Apply a theme: remember it, retitle the static labels, and redraw the shop.
+function applyTheme(id) {
+  theme = THEMES[id] || THEMES.garden;
+  prefs.theme = theme.id; saveJSON(PREF_KEY, prefs);
+  $('sap-unit').textContent = W_('sap');
+  $('water-label').textContent = W_('water'); $('light-label').textContent = W_('light'); $('nutrients-label').textContent = W_('nutrients');
+  $('shop-title').textContent = W_('shopTitle'); $('shop-tab-garden').textContent = W_('shopTab');
+  $('theme').textContent = 'Theme: ' + theme.name;
+  shopSig = ''; lastPillSig = '';
+  updateHud();
+}
+$('theme').addEventListener('click', () => {
+  const ids = Object.keys(THEMES); const next = ids[(ids.indexOf(theme.id) + 1) % ids.length];
+  applyTheme(next);
+  pushTicker('theme: ' + theme.name, 'you');
+});
+{
+  const fromUrl = (location.search.match(/[?&]theme=([a-z]+)/) || [])[1];
+  applyTheme(fromUrl || prefs.theme || 'garden');
+}
+
+window.__garden = { critters, particles, plants, garden, ambient, spawnAmbient, deskState, openDesk, sessions: () => sessions, holds: () => pendingHolds, holding: () => holding, letters: () => letters, focused, holdRate, celebrateCommand, hourglass, desk, THEMES, applyTheme, theme: () => theme, hold: (on) => { holding = on && focused() ? { sid: focused().id, x: W / 2, y: H * 0.7, acc: 0 } : null; } };   // debugging handle
 updateHud();
 requestAnimationFrame(frame);
 })();
