@@ -171,6 +171,22 @@ per browser), and `?theme=wizard` in the address previews one.
   the ambient life becomes sprites, scarabs, toads, bats, an airship, a
   dragon, embers, slimes, and an aurora in place of the rainbow. 10M sap.
 
+- **Orbit**: a planet that grows from dust and gathering pebbles to a rocky
+  world, gains an atmosphere, oceans, life, city lights, rings, and gas-giant
+  bands, and collects moons, held over a launch pad on a cratered moon by a
+  tractor beam. Stardust, cores, ice, starlight, and minerals; drills and
+  tractor beams; rogue drones, probes, a ring station, a comms dish, a
+  console, an airlock, a reactor core, helpers in helmets. 10M sap.
+- **Jurassic**: an egg that cracks and hatches into a dinosaur that grows a
+  size per stage in a nest under a smoking volcano, with a nest of eggs from
+  the nesting stage and a crown of feathers for the alpha. Species are
+  raptors, a brachiosaurus whose neck follows the sun, an ankylosaurus, a
+  parasaurolophus, a stegosaurus, a triceratops, an amber raptor, and a
+  tyrannosaurus. Food, eggs, water, sunshine, and ferns; spears and stone
+  axes; pterosaurs, beetles, a cave, a message stone, a carving stone with a
+  torch, a log gate with a bone fence, a campfire whose wood pile is the
+  context, helpers with feathers. 10M sap.
+
 Adding a theme is one object in `game/game.js` (see `THEMES.wizard`).
 
 ## What else the garden shows
