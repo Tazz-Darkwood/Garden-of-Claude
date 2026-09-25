@@ -3376,8 +3376,8 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.25 : 1);
     const cx = r.cx, base = r.y - 6;
     const shape = sp.shape;
-    const floors = Math.min(si, 12), floorH = (shape === 'stem' ? 16 : 12) * k;
-    const bw = (shape === 'stem' ? 22 : shape === 'spikes' ? 40 : shape === 'cactus' ? 24 : 34) * k;
+    const floors = Math.min(si, 12), floorH = (shape === 'stem' ? 24 : 20) * k;
+    const bw = (shape === 'stem' ? 17 : shape === 'spikes' ? 26 : shape === 'cactus' ? 22 : 28) * k;
     const height = floors * floorH + prog * floorH * 0.6;
     const wall = shape === 'cactus' ? [30, 26, 40] : shape === 'fronds' ? [150, 200, 230] : shape === 'moon' ? [200, 205, 225] : shape === 'stem' ? [220, 190, 110] : shape === 'spikes' ? [140, 100, 200] : [126, 122, 136];
     const lit = si >= 5;
@@ -3392,45 +3392,74 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     let lift = 0;
     if (shape === 'bonsai' && si >= 3) { lift = 18 * k + Math.sin(t * 0.8) * 4; ctx.fillStyle = stone(90, dl); ctx.beginPath(); ctx.moveTo(cx - bw * 0.9, base - lift + 2); ctx.lineTo(cx + bw * 0.9, base - lift + 2); ctx.lineTo(cx + bw * 0.4, base - lift + 16 * k); ctx.lineTo(cx - bw * 0.3, base - lift + 14 * k); ctx.closePath(); ctx.fill(); }
     const b = base - lift;
-    // walls, one floor at a time, narrowing a touch as they climb
+    // the tower proper: a footing with buttresses and a door, stone courses one
+    // floor at a time (tapering as they climb), ledges, balconies, arched windows
+    const crystal = shape === 'fronds' || shape === 'moon';
+    const wallCol = (kk, a) => col(wall.map((c) => Math.min(255, c * kk)), dl, a);
+    const widthAt = (f) => bw * (1 - Math.min(f, 12) * 0.03);
+    // footing and buttresses
+    ctx.fillStyle = wallCol(0.75); ctx.fillRect(cx - bw * 1.25, b - 8 * k, bw * 2.5, 8 * k);
+    for (const side of [-1, 1]) { ctx.fillStyle = wallCol(0.85); ctx.beginPath(); ctx.moveTo(cx + side * bw, b - 8 * k); ctx.lineTo(cx + side * bw * 1.35, b - 8 * k); ctx.lineTo(cx + side * bw, b - 8 * k - floorH * 1.4); ctx.closePath(); ctx.fill(); }
     for (let f = 0; f < floors; f++) {
-      const y0 = b - (f + 1) * floorH, ww = bw * (1 - f * 0.02);
+      const ww = widthAt(f), y0 = b - 8 * k - (f + 1) * floorH, y1 = y0 + floorH;
       const g = ctx.createLinearGradient(cx - ww, 0, cx + ww, 0);
-      g.addColorStop(0, col(wall.map((c) => Math.min(255, c + 30)), dl)); g.addColorStop(0.5, col(wall, dl)); g.addColorStop(1, col(wall.map((c) => c * 0.6), dl));
-      ctx.fillStyle = g; ctx.fillRect(cx - ww, y0, ww * 2, floorH + 1);
-      if (shape !== 'fronds' && shape !== 'moon') { ctx.strokeStyle = 'rgba(0,0,0,' + (0.18 * dl + 0.05).toFixed(2) + ')'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx - ww, y0 + floorH); ctx.lineTo(cx + ww, y0 + floorH); ctx.stroke(); }
-      // windows
-      const n = shape === 'stem' ? 1 : 2;
-      for (let i = 0; i < n; i++) {
-        const wx = n === 1 ? cx : cx - ww * 0.45 + i * ww * 0.9, wy = y0 + floorH * 0.5;
-        const glow = lit ? 0.6 + 0.4 * Math.sin(t * 2 + f * 1.3 + i) : 0;
-        ctx.fillStyle = lit ? 'rgba(255,200,110,' + (0.5 + 0.5 * glow).toFixed(2) + ')' : 'rgba(20,16,40,0.8)';
-        ctx.beginPath(); ctx.roundRect(wx - 2.5 * k, wy - 4 * k, 5 * k, 7 * k, [2.5 * k, 2.5 * k, 0, 0]); ctx.fill();
-        if (lit) { const gl = ctx.createRadialGradient(wx, wy, 1, wx, wy, 12 * k); gl.addColorStop(0, 'rgba(255,200,110,' + (0.35 * glow).toFixed(2) + ')'); gl.addColorStop(1, 'rgba(255,200,110,0)'); ctx.fillStyle = gl; ctx.fillRect(wx - 12 * k, wy - 12 * k, 24 * k, 24 * k); }
+      g.addColorStop(0, wallCol(1.25)); g.addColorStop(0.45, wallCol(1)); g.addColorStop(1, wallCol(0.55));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.moveTo(cx - ww, y1 + 1); ctx.lineTo(cx - widthAt(f + 1), y0); ctx.lineTo(cx + widthAt(f + 1), y0); ctx.lineTo(cx + ww, y1 + 1); ctx.closePath(); ctx.fill();
+      if (!crystal) {
+        // stone courses
+        ctx.strokeStyle = 'rgba(0,0,0,' + (0.16 * dl + 0.06).toFixed(2) + ')'; ctx.lineWidth = 1;
+        for (let c = 0; c < 3; c++) { const yy = y0 + floorH * (c + 1) / 3; ctx.beginPath(); ctx.moveTo(cx - ww, yy); ctx.lineTo(cx + ww, yy); ctx.stroke(); const off = (c % 2) * 7 * k; for (let bx = cx - ww + off; bx < cx + ww; bx += 14 * k) { ctx.beginPath(); ctx.moveTo(bx, yy - floorH / 3); ctx.lineTo(bx, yy); ctx.stroke(); } }
+        if (shape === 'cactus') { ctx.strokeStyle = 'rgba(255,80,60,' + (0.35 + 0.3 * Math.sin(t * 2 + f)).toFixed(2) + ')'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(cx - ww * 0.6, y1); ctx.lineTo(cx - ww * 0.2 + Math.sin(f) * 4, y0); ctx.stroke(); }
+      } else { ctx.strokeStyle = 'rgba(255,255,255,0.35)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx - ww * 0.5, y1); ctx.lineTo(cx - ww * 0.2, y0); ctx.stroke(); }
+      // a ledge every third floor
+      if (f % 3 === 2) { ctx.fillStyle = wallCol(1.3); ctx.fillRect(cx - ww - 4 * k, y0 - 1.5 * k, ww * 2 + 8 * k, 3 * k); ctx.fillStyle = 'rgba(0,0,0,0.2)'; ctx.fillRect(cx - ww - 4 * k, y0 + 1.5 * k, ww * 2 + 8 * k, 1.5 * k); }
+      // the door on the ground floor
+      if (f === 0) {
+        ctx.fillStyle = 'rgba(30,20,20,0.9)'; ctx.beginPath(); ctx.moveTo(cx - 5 * k, y1 + 1); ctx.lineTo(cx - 5 * k, y1 - 9 * k); ctx.arc(cx, y1 - 9 * k, 5 * k, Math.PI, 0); ctx.lineTo(cx + 5 * k, y1 + 1); ctx.closePath(); ctx.fill();
+        if (lit) { ctx.fillStyle = 'rgba(255,200,110,' + (0.35 + 0.15 * Math.sin(t * 3)).toFixed(2) + ')'; ctx.fillRect(cx - 4 * k, y1 - 6 * k, 8 * k, 6 * k); }
+        ctx.strokeStyle = 'rgba(140,110,70,0.8)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(cx - 5 * k, y1 - 9 * k); ctx.arc(cx, y1 - 9 * k, 5 * k, Math.PI, 0); ctx.stroke();
+      } else {
+        // an arched window, alternating sides, with a slit opposite; the sun spire has one in the middle
+        const side = shape === 'stem' ? 0 : (f % 2 ? 1 : -1);
+        const wx = cx + side * ww * 0.4, wy = y0 + floorH * 0.55;
+        const glow = lit ? 0.6 + 0.4 * Math.sin(t * 2 + f * 1.3) : 0;
+        ctx.fillStyle = lit ? 'rgba(255,200,110,' + (0.5 + 0.5 * glow).toFixed(2) + ')' : 'rgba(20,16,40,0.85)';
+        ctx.beginPath(); ctx.moveTo(wx - 3 * k, wy + 5 * k); ctx.lineTo(wx - 3 * k, wy - 2 * k); ctx.arc(wx, wy - 2 * k, 3 * k, Math.PI, 0); ctx.lineTo(wx + 3 * k, wy + 5 * k); ctx.closePath(); ctx.fill();
+        if (lit) { const gl = ctx.createRadialGradient(wx, wy, 1, wx, wy, 14 * k); gl.addColorStop(0, 'rgba(255,200,110,' + (0.35 * glow).toFixed(2) + ')'); gl.addColorStop(1, 'rgba(255,200,110,0)'); ctx.fillStyle = gl; ctx.fillRect(wx - 14 * k, wy - 14 * k, 28 * k, 28 * k); }
+        if (side) { ctx.fillStyle = lit ? 'rgba(255,200,110,0.7)' : 'rgba(20,16,40,0.85)'; ctx.fillRect(cx - side * ww * 0.45 - 1 * k, wy - 3 * k, 2 * k, 7 * k); }
+        // a balcony on the fourth and eighth floors
+        if (f === 4 || f === 8) { const bsx = cx + (f === 4 ? 1 : -1) * ww; ctx.fillStyle = wallCol(1.2); ctx.fillRect(Math.min(bsx, bsx + (f === 4 ? 1 : -1) * 10 * k), y1 - 4 * k, 10 * k, 3 * k); ctx.strokeStyle = wallCol(1.35); ctx.lineWidth = 1.2; for (let p = 0; p <= 3; p++) { const px = bsx + (f === 4 ? 1 : -1) * p * 3.3 * k; ctx.beginPath(); ctx.moveTo(px, y1 - 4 * k); ctx.lineTo(px, y1 - 11 * k); ctx.stroke(); } ctx.beginPath(); ctx.moveTo(bsx, y1 - 11 * k); ctx.lineTo(bsx + (f === 4 ? 1 : -1) * 10 * k, y1 - 11 * k); ctx.stroke(); }
       }
     }
     // the floor in progress rises out of the last one
-    if (floors < 12 && prog > 0.05) { const y0 = b - floors * floorH - prog * floorH * 0.6; ctx.fillStyle = col(wall, dl * 0.9, 0.7); ctx.fillRect(cx - bw * 0.9, y0, bw * 1.8, prog * floorH * 0.6 + 1); }
-    const top = b - floors * floorH;
-    // roof by species
-    const roofY = top - (shape === 'stem' ? 30 : 22) * k;
-    if (shape === 'rose' || (shape === 'branch' && sp.thorns)) {
-      ctx.fillStyle = stone(100, dl); for (let i = -2; i <= 2; i++) ctx.fillRect(cx + i * bw * 0.4 - 3 * k, top - 8 * k, 6 * k, 8 * k);
-      ctx.fillStyle = '#c94a3a'; ctx.beginPath(); ctx.moveTo(cx, top - 8 * k); ctx.lineTo(cx, top - 30 * k); ctx.lineTo(cx + 12 * k + Math.sin(t * 3) * 3, top - 25 * k); ctx.lineTo(cx, top - 20 * k); ctx.closePath(); ctx.fill();
-    } else if (shape === 'cactus') {
-      ctx.fillStyle = col([20, 16, 30], dl); ctx.beginPath(); ctx.moveTo(cx - bw, top); ctx.lineTo(cx + bw, top); ctx.lineTo(cx, top - 40 * k); ctx.closePath(); ctx.fill();
-      ctx.strokeStyle = 'rgba(255,80,60,' + (0.5 + 0.4 * Math.sin(t * 3)).toFixed(2) + ')'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(cx - bw * 0.5, top - 10 * k); ctx.lineTo(cx, top - 32 * k); ctx.stroke();
-    } else if (shape === 'spikes') {
-      for (let i = -1; i <= 1; i++) { ctx.fillStyle = col([170, 130, 230], dl, 0.9); ctx.beginPath(); ctx.moveTo(cx + i * bw * 0.6 - 8 * k, top); ctx.lineTo(cx + i * bw * 0.6 + 8 * k, top); ctx.lineTo(cx + i * bw * 0.6, top - (28 - Math.abs(i) * 10) * k); ctx.closePath(); ctx.fill(); }
-    } else if (shape === 'fronds' || shape === 'moon') {
-      ctx.fillStyle = shape === 'moon' ? col([225, 228, 245], dl) : col([180, 230, 255], dl, 0.9); ctx.beginPath(); ctx.moveTo(cx - bw, top); ctx.lineTo(cx + bw, top); ctx.lineTo(cx, roofY - 10 * k); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.moveTo(cx - bw * 0.6, top); ctx.lineTo(cx - bw * 0.2, top); ctx.lineTo(cx - 2 * k, roofY - 6 * k); ctx.closePath(); ctx.fill();
+    const topW = widthAt(floors);
+    if (floors < 12 && prog > 0.05) { const y0 = b - 8 * k - floors * floorH - prog * floorH * 0.7; ctx.fillStyle = wallCol(1, 0.65); ctx.fillRect(cx - topW, y0, topW * 2, prog * floorH * 0.7 + 1); }
+    const top = b - 8 * k - floors * floorH;
+    // battlements on a wider top ledge, then the roof
+    ctx.fillStyle = wallCol(1.3); ctx.fillRect(cx - topW - 5 * k, top - 3 * k, topW * 2 + 10 * k, 4 * k);
+    if (crystal) { for (let i = -3; i <= 3; i++) { ctx.fillStyle = shape === 'moon' ? col([225, 228, 245], dl, 0.9) : col([180, 230, 255], dl, 0.85); ctx.beginPath(); ctx.moveTo(cx + i * topW * 0.33 - 3 * k, top - 3 * k); ctx.lineTo(cx + i * topW * 0.33, top - (9 + (i % 2) * 4) * k); ctx.lineTo(cx + i * topW * 0.33 + 3 * k, top - 3 * k); ctx.closePath(); ctx.fill(); } }
+    else { ctx.fillStyle = wallCol(1.15); for (let i = -3; i <= 3; i++) { if (i % 2) continue; ctx.fillRect(cx + i * topW * 0.33 - 3 * k, top - 10 * k, 6 * k, 7 * k); } if (shape === 'cactus') { ctx.fillStyle = col([20, 16, 30], dl); for (let i = -3; i <= 3; i++) { if (!(i % 2)) continue; ctx.beginPath(); ctx.moveTo(cx + i * topW * 0.33 - 2 * k, top - 3 * k); ctx.lineTo(cx + i * topW * 0.33, top - 12 * k); ctx.lineTo(cx + i * topW * 0.33 + 2 * k, top - 3 * k); ctx.closePath(); ctx.fill(); } } }
+    const roofBase = top - 10 * k, roofW = topW + 6 * k;
+    const roofH = (shape === 'stem' ? 60 : shape === 'spikes' ? 38 : 46) * k;
+    const roofY = roofBase - roofH;
+    if (shape === 'spikes') {
+      // amethyst cluster: three crystal spires
+      for (let i = -1; i <= 1; i++) { const h = (i ? 26 : 38) * k; ctx.fillStyle = col([170, 130, 230], dl, 0.9); ctx.beginPath(); ctx.moveTo(cx + i * roofW * 0.6 - 7 * k, roofBase); ctx.lineTo(cx + i * roofW * 0.6, roofBase - h); ctx.lineTo(cx + i * roofW * 0.6 + 7 * k, roofBase); ctx.closePath(); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,0.35)'; ctx.beginPath(); ctx.moveTo(cx + i * roofW * 0.6 - 7 * k, roofBase); ctx.lineTo(cx + i * roofW * 0.6 - 2 * k, roofBase); ctx.lineTo(cx + i * roofW * 0.6, roofBase - h); ctx.closePath(); ctx.fill(); }
     } else {
-      // slate cone with an overhang
-      ctx.fillStyle = col(shape === 'stem' ? [200, 150, 60] : [70, 60, 100], dl); ctx.beginPath(); ctx.moveTo(cx - bw - 5 * k, top); ctx.lineTo(cx + bw + 5 * k, top); ctx.lineTo(cx, roofY); ctx.closePath(); ctx.fill();
-      ctx.fillStyle = 'rgba(255,255,255,' + (0.12 * dl).toFixed(2) + ')'; ctx.beginPath(); ctx.moveTo(cx - bw - 5 * k, top); ctx.lineTo(cx - bw * 0.3, top); ctx.lineTo(cx - 2 * k, roofY + 4 * k); ctx.closePath(); ctx.fill();
+      // a tall cone with an overhang, slate stripes, a lit edge, and a finial
+      const rc = crystal ? (shape === 'moon' ? [215, 218, 240] : [170, 225, 255]) : shape === 'cactus' ? [20, 16, 30] : shape === 'stem' ? [205, 150, 55] : sp.thorns ? [110, 40, 50] : [70, 60, 105];
+      ctx.fillStyle = col(rc, dl, crystal ? 0.85 : 1); ctx.beginPath(); ctx.moveTo(cx - roofW, roofBase); ctx.lineTo(cx + roofW, roofBase); ctx.lineTo(cx, roofY); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,' + (0.14 * dl + 0.04).toFixed(2) + ')'; ctx.beginPath(); ctx.moveTo(cx - roofW, roofBase); ctx.lineTo(cx - roofW * 0.35, roofBase); ctx.lineTo(cx - 1.5 * k, roofY + 4 * k); ctx.closePath(); ctx.fill();
+      if (!crystal) { ctx.strokeStyle = 'rgba(0,0,0,0.22)'; ctx.lineWidth = 1; for (let i = 1; i < 6; i++) { const yy = roofBase - roofH * i / 6, w2 = roofW * (1 - i / 6); ctx.beginPath(); ctx.moveTo(cx - w2, yy); ctx.lineTo(cx + w2, yy); ctx.stroke(); } }
+      ctx.fillStyle = col([60, 56, 64], dl); ctx.fillRect(cx - roofW - 2 * k, roofBase - 1.5 * k, roofW * 2 + 4 * k, 3 * k);
+      if (shape === 'cactus') { ctx.strokeStyle = 'rgba(255,80,60,' + (0.5 + 0.4 * Math.sin(t * 3)).toFixed(2) + ')'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(cx - roofW * 0.4, roofBase - 6 * k); ctx.lineTo(cx, roofY + 10 * k); ctx.stroke(); }
     }
-    const spireTip = shape === 'cactus' ? top - 40 * k : shape === 'spikes' ? top - 28 * k : shape === 'rose' ? top - 30 * k : roofY - (shape === 'fronds' || shape === 'moon' ? 10 * k : 0);
+    // a pennant at the very top, waving in the wind
+    const tipY = shape === 'spikes' ? roofBase - 38 * k : roofY;
+    ctx.fillStyle = col([60, 56, 64], dl); ctx.fillRect(cx - 0.8 * k, tipY - 14 * k, 1.6 * k, 14 * k);
+    const wave = Math.sin(t * 4 + r.x) * 2 * (1 + weather.wind * 2), flagCol = sp.thorns ? '#c94a3a' : shape === 'stem' ? '#ffd45c' : shape === 'cactus' ? '#a03030' : crystal ? '#bfe8ff' : '#7a5cd6';
+    ctx.fillStyle = flagCol; ctx.beginPath(); ctx.moveTo(cx, tipY - 14 * k); ctx.lineTo(cx + 12 * k + wave, tipY - 11 * k + wave * 0.5); ctx.lineTo(cx, tipY - 7 * k); ctx.closePath(); ctx.fill();
+    const spireTip = tipY - 14 * k;
     // crystal at the spire from the crystal-spire stage
     if (si >= 6) {
       const pulse = 0.6 + 0.4 * Math.sin(t * 2.5);
