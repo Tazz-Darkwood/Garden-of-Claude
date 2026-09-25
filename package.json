@@ -8,7 +8,8 @@
     "start": "node server/server.js",
     "setup": "node install.js",
     "install-hooks": "node install.js",
-    "remove-hooks": "node install.js --remove"
+    "remove-hooks": "node install.js --remove",
+    "stop": "node server/stop.js"
   },
   "engines": {
     "node": ">=18"

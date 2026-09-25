@@ -725,13 +725,15 @@ function chime(f1, f2) {
 
 // ---------- HUD ----------
 const MODE_LABEL = { working: 'Claude is working', needs_you: 'Claude needs you', your_turn: 'Claude is idle', idle: 'quiet', stalled: 'Claude went quiet: check the app' };
+let closed = false;   // the server was stopped from the Quit button
 let lastPillSig = '';
 let shopSig = '';
 function updateHud() {
   const status = $('status');
   const focHeld = focused() && pendingHolds[focused().id];
   status.className = 'pill ' + (connected ? (mode === 'your_turn' && focHeld ? 'your_turn' : mode) : 'offline');
-  status.textContent = connected ? (mode === 'your_turn' && focHeld ? 'Claude is idle · desk is open' : MODE_LABEL[mode]) : 'server offline';
+  status.textContent = closed ? 'garden closed' : connected ? (mode === 'your_turn' && focHeld ? 'Claude is idle · desk is open' : MODE_LABEL[mode]) : 'server offline';
+  if (!armed.quit && $('quit').textContent !== 'Quit') $('quit').textContent = 'Quit';
   document.title = mode === 'needs_you' ? '⚠ Claude needs you' : unread ? '✉ Claude asked you something' : mode === 'stalled' ? '⚠ Claude went quiet' : '🌱 Garden of Claude';
   $('board').style.bottom = ($('panel').offsetHeight + 20) + 'px';
   if (focused() && focused().id !== boardSid) renderBoard();
@@ -809,7 +811,11 @@ function updateHud() {
   if ($('sound').textContent !== soundLabel) $('sound').textContent = soundLabel;
 
   const att = $('attention');
-  if (connected && mode === 'needs_you') {
+  if (closed) {
+    att.className = 'calm'; att.style.pointerEvents = 'none';
+    $('attention-title').textContent = 'The garden is closed';
+    $('attention-note').textContent = 'Its server has stopped. It starts again with your next Claude session, or with npm start.';
+  } else if (connected && mode === 'needs_you') {
     att.className = ''; att.style.pointerEvents = 'none';
     $('attention-title').textContent = 'Claude needs you';
     const s = liveSessions().find((x) => x.status === mode);
@@ -990,6 +996,9 @@ function armedClick(id, label, action) {
   armed[id] = Date.now(); btn.classList.add('armed'); btn.textContent = label;
   setTimeout(() => { if (armed[id] && Date.now() - armed[id] >= 3900) { armed[id] = 0; btn.classList.remove('armed'); updateHud(); } }, 4100);
 }
+$('quit').addEventListener('click', () => armedClick('quit', 'Sure? Stop the server', async () => {
+  try { await fetch('/quit', { method: 'POST' }); } catch { /* already gone */ }
+}));
 $('harvest').addEventListener('click', () => {
   const s = focused(); const p = s && plants[s.id];
   if (!p || stageIndex(p.sap) < FRUITING) return;
@@ -1196,6 +1205,7 @@ function connect() {
       dawnFlash = Math.max(dawnFlash, 0.8);
     }
     if (msg.compactAt) compactAt = msg.compactAt;
+    if (msg.type === 'quit') { closed = true; connected = false; es.close(); pushTicker('the garden was closed from the Quit button', 'alert'); updateHud(); return; }
     if (msg.type === 'snapshot') {
       const items = [...(msg.recent || []).slice(-40).map((e) => ({ at: e.received_at || 0, ev: e })), ...(msg.notes || []).map((n) => ({ at: n.at || 0, note: n }))].sort((a, b) => a.at - b.at);
       for (const it of items) { if (it.ev) ingest(it.ev, true); else ingestNote(it.note, true); }

@@ -325,9 +325,14 @@ bonus; the rest are just for watching.
 
 ## Turning it off
 
-Remove the `hooks` block from `~/.claude/settings.json`, or set
-`"disableAllHooks": true` there. Stopping the server alone is also safe; the
-hooks simply fail silently.
+The **Quit** button in the game (click it twice) ends any held turn so Claude
+is not left waiting, writes the save, and stops the server; `npm stop` does the
+same from a terminal. The hooks start the server again at your next Claude
+session, and while it is stopped they simply fail silently.
+
+To turn the garden off for good, run `npm run remove-hooks` (or remove the
+`hooks` block from `~/.claude/settings.json`, or set `"disableAllHooks": true`
+there).
 
 ## License
 

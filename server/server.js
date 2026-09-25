@@ -730,6 +730,21 @@ async function handleTouch(req, res) {
   send(res, 200, JSON.stringify({ ok: Boolean(p) }));
 }
 
+// Quit from the game: end any held turn cleanly so Claude is not left blocked,
+// write the save, tell every page, then stop. The relay starts the server again
+// at the next SessionStart, so this is "off until next time", not "removed".
+function handleQuit(req, res) {
+  for (const sid of [...pending.keys()]) finishHold(sid, null);
+  if (saveTimerHandle) { clearTimeout(saveTimerHandle); saveTimerHandle = null; }
+  try { if (save) { fs.mkdirSync(LOG_DIR, { recursive: true }); fs.writeFileSync(SAVE_FILE, JSON.stringify(save)); } } catch { /* best effort */ }
+  broadcast({ type: 'quit' });
+  send(res, 200, JSON.stringify({ ok: true }));
+  setTimeout(() => {
+    for (const c of clients) { try { c.end(); } catch { /* closed */ } }
+    process.exit(0);
+  }, 400);
+}
+
 async function handleRelease(req, res) {
   let body = {};
   try { body = JSON.parse((await readBody(req)) || '{}'); } catch { /* fall through */ }
@@ -764,6 +779,7 @@ const server = http.createServer((req, res) => {
   if (req.method === 'POST' && url.pathname === '/pause') return handlePause(req, res);
   if (req.method === 'POST' && url.pathname === '/reply') return handleReply(req, res);
   if (req.method === 'POST' && url.pathname === '/release') return handleRelease(req, res);
+  if (req.method === 'POST' && url.pathname === '/quit') return handleQuit(req, res);
   if (req.method === 'POST' && url.pathname === '/hold/touch') return handleTouch(req, res);
   if (req.method === 'POST' && url.pathname === '/econ') return handleEcon(req, res);
   if (req.method === 'POST' && url.pathname === '/unqueue') return handleUnqueue(req, res);
