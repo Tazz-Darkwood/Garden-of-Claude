@@ -2266,7 +2266,9 @@ function drawGardeners(r, s, t) {
     ctx.fillStyle = col([70, 60, 80], dl); ctx.fillRect(-5, -12, 4, 12); ctx.fillRect(1, -12, 4, 12);
     ctx.fillStyle = col(shirt, dl); ctx.beginPath(); ctx.roundRect(-7, -30, 14, 19, 4); ctx.fill();
     ctx.fillStyle = col([241, 201, 165], dl); ctx.beginPath(); ctx.arc(0, -36, 6, 0, Math.PI * 2); ctx.fill();
-    if (theme.hat === 'wizard') { ctx.fillStyle = col([70, 50, 130], dl); ctx.beginPath(); ctx.ellipse(0, -40, 11, 3, 0, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.moveTo(-7, -40); ctx.lineTo(7, -40); ctx.lineTo(2 + Math.sin(t * 2 + seed) * 2, -60); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#ffd45c'; ctx.beginPath(); ctx.arc(0, -50, 1.6, 0, Math.PI * 2); ctx.fill(); }
+    if (theme.hat === 'space') { ctx.fillStyle = 'rgba(200,230,255,0.45)'; ctx.beginPath(); ctx.arc(0, -36, 9, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = col([200, 210, 230], dl); ctx.lineWidth = 1.5; ctx.stroke(); ctx.fillStyle = col([200, 210, 230], dl); ctx.fillRect(-6, -27, 12, 3); }
+    else if (theme.hat === 'dino') { ctx.strokeStyle = col([120, 80, 50], dl); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(-6, -40); ctx.lineTo(6, -40); ctx.stroke(); ctx.fillStyle = ['#e04a3a', '#f2c94c', '#3aa0e0'][seed % 3]; ctx.beginPath(); ctx.ellipse(4, -48 + Math.sin(t * 2 + seed), 2, 7, 0.3, 0, Math.PI * 2); ctx.fill(); }
+    else if (theme.hat === 'wizard') { ctx.fillStyle = col([70, 50, 130], dl); ctx.beginPath(); ctx.ellipse(0, -40, 11, 3, 0, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.moveTo(-7, -40); ctx.lineTo(7, -40); ctx.lineTo(2 + Math.sin(t * 2 + seed) * 2, -60); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#ffd45c'; ctx.beginPath(); ctx.arc(0, -50, 1.6, 0, Math.PI * 2); ctx.fill(); }
     else { ctx.fillStyle = col([200, 160, 90], dl); ctx.beginPath(); ctx.ellipse(0, -40, 10, 3, 0, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.roundRect(-5, -47, 10, 8, 2); ctx.fill(); }
     // arms and rake, swinging as they work
     ctx.strokeStyle = col([241, 201, 165], dl); ctx.lineWidth = 3; ctx.lineCap = 'round';
@@ -3701,6 +3703,322 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       NIGHT: [[8, 6, 26], [40, 24, 72]],
     },
     draw: { sky: wizSky, ground: wizGround, planter: wizPlanter, plant: wizTower, greenhouse: wizObservatory, pests: wizImps, critters: wizWisps, upgrades: wizUpgrades, ambient: wizAmbient, mailbox: wizMailbox, desk: wizDesk, gate: wizGate, lantern: wizVial },
+  };
+})();
+
+// ---------- theme: orbit ----------
+// A planet that grows from dust to a ringed giant on a launch platform above
+// a cratered moon. Stardust for sap, cores for seeds, ice, starlight, and
+// minerals for the meters, drones for crows, probes for bees.
+(function registerSpace() {
+  const metal = (k, dl, a) => col([k, k + 4, k + 10], dl, a);
+  function spSky(t) {
+    const [top, bottom] = skyColors(t);
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, rgb(top)); g.addColorStop(1, rgb(bottom));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    if (!connected) return;
+    // nebula patches
+    for (let i = 0; i < 3; i++) {
+      const nx = W * (0.2 + i * 0.3) + Math.sin(t * 0.05 + i) * 30, ny = H * (0.15 + (i % 2) * 0.2);
+      const ng = ctx.createRadialGradient(nx, ny, 10, nx, ny, W * 0.18);
+      ng.addColorStop(0, 'hsla(' + (250 + i * 50) + ',70%,60%,0.16)'); ng.addColorStop(1, 'hsla(' + (250 + i * 50) + ',70%,60%,0)');
+      ctx.fillStyle = ng; ctx.fillRect(nx - W * 0.18, ny - W * 0.18, W * 0.36, W * 0.36);
+    }
+    for (const s of stars) {
+      const a = 0.5 + 0.5 * Math.abs(Math.sin(t * 0.8 + s.tw));
+      ctx.fillStyle = 'rgba(255,255,255,' + (a * (1 - weather.cloud * 0.5)).toFixed(2) + ')';
+      ctx.beginPath(); ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2); ctx.fill();
+    }
+    // the local star crosses the sky by day; a distant gas giant hangs there at night
+    const f = dayFraction();
+    if (!isNight()) {
+      const sx = W * 0.08 + f * W * 0.84, sy = H * 0.62 - Math.sin(f * Math.PI) * H * 0.5, r = 14 + weather.sun * 10;
+      const gl = ctx.createRadialGradient(sx, sy, r * 0.5, sx, sy, r * 6); gl.addColorStop(0, 'rgba(255,250,235,0.6)'); gl.addColorStop(1, 'rgba(255,250,235,0)'); ctx.fillStyle = gl; ctx.fillRect(sx - r * 6, sy - r * 6, r * 12, r * 12);
+      ctx.fillStyle = '#fffdf5'; ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = 'rgba(255,255,255,0.5)'; ctx.lineWidth = 1; for (let k = 0; k < 4; k++) { const a1 = k * Math.PI / 4 + t * 0.1; ctx.beginPath(); ctx.moveTo(sx + Math.cos(a1) * r * 1.3, sy + Math.sin(a1) * r * 1.3); ctx.lineTo(sx + Math.cos(a1) * r * 2.4, sy + Math.sin(a1) * r * 2.4); ctx.stroke(); }
+    } else {
+      const px = W * 0.78, py = H * 0.2, pr = 34;
+      ctx.fillStyle = '#c99a6b'; ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(120,70,40,0.5)'; for (let k = -2; k <= 2; k++) { ctx.beginPath(); ctx.ellipse(px, py + k * 11, Math.sqrt(Math.max(1, pr * pr - (k * 11) * (k * 11))), 3.5, 0, 0, Math.PI * 2); ctx.fill(); }
+      ctx.strokeStyle = 'rgba(230,220,200,0.7)'; ctx.lineWidth = 4; ctx.beginPath(); ctx.ellipse(px, py, pr * 1.9, pr * 0.35, -0.3, 0, Math.PI * 2); ctx.stroke();
+      ctx.fillStyle = 'rgba(0,0,0,0.35)'; ctx.beginPath(); ctx.arc(px + 12, py - 6, pr, 0, Math.PI * 2); ctx.fill();
+    }
+    // reads drift in as a dust cloud rather than rain clouds
+    if (weather.rain > 0.15) { ctx.fillStyle = 'rgba(120,130,170,' + (weather.rain * 0.4).toFixed(2) + ')'; for (let i = 0; i < 6; i++) { const cx = ((i + 0.5) / 6) * W + Math.sin(t * 0.3 + i) * 30; ctx.beginPath(); ctx.ellipse(cx, 30 + (i % 2) * 16, W * 0.12, 12, 0, 0, Math.PI * 2); ctx.fill(); } }
+  }
+  function spGround(t) {
+    const dl = daylight();
+    // a cratered moon surface with a curved horizon
+    ctx.fillStyle = col([120, 118, 130], dl * 0.85);
+    ctx.beginPath(); ctx.moveTo(0, soilY + 10); ctx.quadraticCurveTo(W / 2, soilY - 40, W, soilY + 10); ctx.lineTo(W, H); ctx.lineTo(0, H); ctx.closePath(); ctx.fill();
+    const g = ctx.createLinearGradient(0, soilY - 8, 0, H);
+    g.addColorStop(0, col([150, 148, 160], dl)); g.addColorStop(0.5, col([110, 108, 122], dl)); g.addColorStop(1, col([70, 68, 82], dl));
+    ctx.fillStyle = g; ctx.fillRect(0, soilY - 8, W, H - soilY + 8);
+    ctx.fillStyle = col([160, 158, 172], dl, 0.6); ctx.fillRect(0, soilY - 8, W, 3);
+    for (const pb of pebbles) {
+      const x = pb.x * W, y = soilY + 10 + pb.y * (H - soilY - 20), r = 4 + pb.r * 6;
+      ctx.fillStyle = col([80, 78, 92], dl); ctx.beginPath(); ctx.ellipse(x, y, r * 1.6, r * 0.7, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = col([140, 138, 150], dl); ctx.beginPath(); ctx.ellipse(x, y - r * 0.25, r * 1.5, r * 0.55, 0, Math.PI, Math.PI * 2); ctx.fill();
+    }
+    // landing lights blink along the surface
+    for (const tf of tufts) { if (tf.h > 6) continue; const x = tf.x * W, y = soilY + 4 + tf.y * (H - soilY - 8); ctx.fillStyle = 'rgba(120,220,255,' + (0.3 + 0.6 * Math.max(0, Math.sin(t * 2 + tf.x * 30))).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(x, y, 1.6, 0, Math.PI * 2); ctx.fill(); }
+  }
+  function spPlanter(r, s, plant, isFocus) {
+    const { x, w, y, h, cx } = r;
+    const dl = daylight();
+    shadow(cx, y + h + 3, w * 1.05, w * 0.06);
+    // a launch platform on struts
+    ctx.fillStyle = metal(70, dl); ctx.fillRect(x + 8, y + 10, 5, h - 10); ctx.fillRect(x + w - 13, y + 10, 5, h - 10); ctx.fillRect(cx - 2.5, y + 10, 5, h - 10);
+    const body = ctx.createLinearGradient(x, 0, x + w, 0);
+    body.addColorStop(0, metal(isFocus ? 175 : 160, dl)); body.addColorStop(0.55, metal(130, dl)); body.addColorStop(1, metal(95, dl));
+    ctx.fillStyle = body; ctx.beginPath(); ctx.roundRect(x - 4, y - 6, w + 8, 16, 4); ctx.fill();
+    ctx.fillStyle = metal(60, dl); ctx.fillRect(x - 4, y + 4, w + 8, 2);
+    for (let i = 0; i < Math.floor(w / 18); i++) { ctx.fillStyle = 'hsla(' + ((i * 60 + t0() * 40) % 360) + ',90%,65%,' + (0.5 + 0.5 * Math.sin(t0() * 3 + i)).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(x + 9 + i * 18, y - 2, 2, 0, Math.PI * 2); ctx.fill(); }
+    const rings = Math.min(6, (s && s.compactions) || 0);
+    if (rings) { ctx.fillStyle = 'rgba(120,220,255,0.7)'; for (let i = 0; i < rings; i++) ctx.fillRect(x + 4 + i * 8, y + 14, 5, 3); }
+    if (plant) { ctx.fillStyle = 'rgba(120,200,255,' + ((plant.water / waterCap()) * 0.35).toFixed(2) + ')'; ctx.beginPath(); ctx.ellipse(cx, y - 4, w / 2 - 6, 5, 0, 0, Math.PI * 2); ctx.fill(); }
+    if (s) tag(r, s, 'rgba(20,30,50,0.92)', '#dff3ff', 'rgba(20,30,50,0.85)', '#bfe6ff');
+  }
+  let _t = 0; const t0 = () => _t;
+  function tag(r, s, bg, fg, bg2, fg2) {
+    const { w, y, h, cx } = r;
+    const label = sessionLabel(s);
+    ctx.font = '600 12px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    const tw = Math.min(w - 16, ctx.measureText(label).width + 26);
+    ctx.fillStyle = bg; ctx.beginPath(); ctx.roundRect(cx - tw / 2, y + h / 2 - 10, tw, 20, 5); ctx.fill();
+    const lamp = { working: '#6fd38a', needs_you: '#ff8f4d', your_turn: '#ffcb5c', idle: '#8a93a6' }[s.status] || '#8a93a6';
+    ctx.fillStyle = lamp; ctx.beginPath(); ctx.arc(cx - tw / 2 + 10, y + h / 2, 4, 0, Math.PI * 2); ctx.fill();
+    ctx.fillStyle = fg; ctx.save(); ctx.beginPath(); ctx.rect(cx - tw / 2 + 16, y, tw - 20, h); ctx.clip(); ctx.fillText(label, cx + 6, y + h / 2); ctx.restore();
+    const pct = Math.round(100 * contextFraction(s));
+    const ctxText = s.night ? '☽ compacting' : 'context ' + pct + '%';
+    ctx.font = '600 10px "Segoe UI", system-ui, sans-serif';
+    const cw = ctx.measureText(ctxText).width + 14;
+    const warn = !s.night && pct >= 100 * compactAt * 0.85;
+    ctx.fillStyle = warn ? 'rgba(255,170,90,0.94)' : bg2; ctx.beginPath(); ctx.roundRect(cx - cw / 2, y + h / 2 + 12, cw, 15, 4); ctx.fill();
+    ctx.fillStyle = warn ? '#3a1d05' : fg2; ctx.fillText(ctxText, cx, y + h / 2 + 19.5);
+  }
+  THEMES.__tag = tag;   // shared with the dinosaur theme below
+  function spPlanet(r, sid, t, plant, wilt) {
+    if (!plant) return;
+    _t = t;
+    const dl = daylight();
+    const sp = speciesOf(plant), si = plantStage(plant), prog = plantProgress(plant);
+    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.25 : 1);
+    const cx = r.cx;
+    const shape = sp.shape;
+    const rad = (8 + Math.min(si, 12) * 4 + prog * 3) * k;
+    const cy = r.y - 24 * k - rad;
+    const base = shape === 'cactus' ? [210, 160, 90] : shape === 'fronds' ? [190, 230, 250] : shape === 'moon' ? [200, 200, 215] : shape === 'stem' ? [240, 200, 90] : shape === 'spikes' ? [150, 110, 200] : shape === 'bonsai' ? [170, 150, 140] : sp.thorns ? [140, 70, 50] : [120, 110, 130];
+    ctx.save(); ctx.globalAlpha = 1 - wilt * 0.6;
+    if (si === 0) {
+      for (let i = 0; i < 24; i++) { const a = t * 0.4 + i * 0.26, rr = (10 + (i % 5) * 4) * k; ctx.fillStyle = 'rgba(200,200,220,' + (0.3 + 0.4 * Math.sin(t * 2 + i)).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(cx + Math.cos(a) * rr, r.y - 30 * k + Math.sin(a) * rr * 0.4, 1.2 * k, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore(); return;
+    }
+    if (si <= 2) {
+      // pebbles gathering into a ball
+      for (let i = 0; i < 10 + si * 6; i++) { const a = t * (0.3 + (i % 3) * 0.1) + i, rr = rad * (0.3 + (i % 4) * 0.25); ctx.fillStyle = col(base, dl); ctx.beginPath(); ctx.arc(cx + Math.cos(a) * rr, cy + Math.sin(a) * rr * 0.7, (1.5 + (i % 3)) * k, 0, Math.PI * 2); ctx.fill(); }
+    }
+    if (si >= 2) {
+      // the sphere, lit from the star's side
+      const f = dayFraction(); const lx = Math.cos(f * Math.PI) * -0.6;
+      const g = ctx.createRadialGradient(cx + lx * rad * 0.5, cy - rad * 0.35, rad * 0.1, cx, cy, rad);
+      g.addColorStop(0, col(base.map((c) => Math.min(255, c + 50)), dl)); g.addColorStop(0.7, col(base, dl)); g.addColorStop(1, col(base.map((c) => c * 0.45), dl));
+      ctx.fillStyle = g; ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2); ctx.fill();
+      ctx.save(); ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2); ctx.clip();
+      // craters or seams by species, oceans from six, life from seven, lights from eight
+      const rs = seededRandom(hashStr(sid));
+      for (let i = 0; i < 6; i++) { const px = cx + (rs() - 0.5) * rad * 1.6, py = cy + (rs() - 0.5) * rad * 1.6, pr = (2 + rs() * 4) * k; ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.arc(px, py, pr, 0, Math.PI * 2); ctx.fill(); }
+      if (shape === 'cactus') { ctx.strokeStyle = 'rgba(255,90,60,' + (0.4 + 0.3 * Math.sin(t * 2)).toFixed(2) + ')'; ctx.lineWidth = 1.5; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(cx - rad + rs() * rad * 2, cy - rad); ctx.lineTo(cx - rad + rs() * rad * 2, cy + rad); ctx.stroke(); } }
+      if (si >= 6) for (let i = 0; i < 4; i++) { ctx.fillStyle = 'rgba(60,120,220,0.85)'; ctx.beginPath(); ctx.ellipse(cx + (rs() - 0.5) * rad * 1.5, cy + (rs() - 0.5) * rad * 1.5, (4 + rs() * 8) * k, (3 + rs() * 5) * k, rs() * 3, 0, Math.PI * 2); ctx.fill(); }
+      if (si >= 7) for (let i = 0; i < 5; i++) { ctx.fillStyle = 'rgba(70,160,80,0.9)'; ctx.beginPath(); ctx.ellipse(cx + (rs() - 0.5) * rad * 1.5, cy + (rs() - 0.5) * rad * 1.5, (3 + rs() * 6) * k, (2 + rs() * 4) * k, rs() * 3, 0, Math.PI * 2); ctx.fill(); }
+      if (si >= 8) for (let i = 0; i < 18; i++) { const px = cx + (rs() - 0.5) * rad * 1.7, py = cy + (rs() - 0.5) * rad * 1.7; if ((px - cx) * lx > 0) continue; ctx.fillStyle = 'rgba(255,230,150,' + (0.5 + 0.5 * Math.sin(t * 3 + i)).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(px, py, 1 * k, 0, Math.PI * 2); ctx.fill(); }
+      if (si >= 11) { for (let b = -3; b <= 3; b++) { ctx.fillStyle = 'rgba(255,255,255,' + (b % 2 ? 0.12 : 0.05) + ')'; ctx.fillRect(cx - rad, cy + b * rad * 0.28 - rad * 0.1, rad * 2, rad * 0.16); } }
+      ctx.restore();
+      // atmosphere from five
+      if (si >= 5) { const ag = ctx.createRadialGradient(cx, cy, rad, cx, cy, rad * 1.25); ag.addColorStop(0, 'rgba(140,200,255,0.35)'); ag.addColorStop(1, 'rgba(140,200,255,0)'); ctx.fillStyle = ag; ctx.beginPath(); ctx.arc(cx, cy, rad * 1.25, 0, Math.PI * 2); ctx.fill(); }
+      if (shape === 'stem' && si >= 3) { const f2 = dayFraction(); const sunX = W * 0.08 + f2 * W * 0.84; const dir = Math.sign(sunX - cx) || 1; ctx.fillStyle = 'rgba(255,220,120,' + (0.6 + 0.3 * Math.sin(t * 4)).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(cx + dir * rad * 0.7, cy - rad * 0.3, 3 * k, 0, Math.PI * 2); ctx.fill(); }
+    }
+    // moons orbit from three, more with age; rings from ten
+    if (si >= 3) {
+      const n = Math.min(5, 1 + Math.floor((si - 3) / 2) + (si >= 12 ? 2 : 0));
+      for (let i = 0; i < n; i++) { const a = t * (0.5 + i * 0.13) + i * 2, ox = rad * (1.5 + i * 0.35), oy = rad * (0.35 + i * 0.08); const mx = cx + Math.cos(a) * ox, my = cy + Math.sin(a) * oy; const front = Math.sin(a) > 0; if (!front && si >= 2) continue; ctx.fillStyle = col([200, 200, 210], dl); ctx.beginPath(); ctx.arc(mx, my, (2 + i) * k, 0, Math.PI * 2); ctx.fill(); }
+    }
+    if (si >= 10 || shape === 'bonsai') { ctx.strokeStyle = 'rgba(230,220,200,0.7)'; ctx.lineWidth = 5 * k; ctx.beginPath(); ctx.ellipse(cx, cy, rad * 1.9, rad * 0.35, -0.25, Math.PI * 0.05, Math.PI * 0.95); ctx.stroke(); ctx.lineWidth = 2 * k; ctx.beginPath(); ctx.ellipse(cx, cy, rad * 2.2, rad * 0.42, -0.25, Math.PI * 0.05, Math.PI * 0.95); ctx.stroke(); }
+    if (si >= 9) { const gl = ctx.createRadialGradient(cx, cy, rad, cx, cy, rad * 2.2); gl.addColorStop(0, 'rgba(160,200,255,' + (si >= 10 ? 0.22 : 0.14) + ')'); gl.addColorStop(1, 'rgba(160,200,255,0)'); ctx.fillStyle = gl; ctx.beginPath(); ctx.arc(cx, cy, rad * 2.2, 0, Math.PI * 2); ctx.fill(); }
+    if (si >= 13) { for (let i = 0; i < 3; i++) { const a = t * 0.3 + i * 2.1; ctx.strokeStyle = 'hsla(' + ((t * 40 + i * 120) % 360) + ',90%,80%,0.35)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx, cy - rad); ctx.lineTo(cx + Math.cos(a) * W * 0.4, cy - rad - Math.abs(Math.sin(a)) * H * 0.5 - 40); ctx.stroke(); } }
+    // a tractor beam holds the planet above the pad
+    ctx.fillStyle = 'rgba(120,220,255,' + (0.08 + 0.05 * Math.sin(t * 3)).toFixed(2) + ')'; ctx.beginPath(); ctx.moveTo(cx - 10 * k, r.y - 6); ctx.lineTo(cx + 10 * k, r.y - 6); ctx.lineTo(cx + rad * 0.5, cy + rad * 0.5); ctx.lineTo(cx - rad * 0.5, cy + rad * 0.5); ctx.closePath(); ctx.fill();
+    ctx.restore();
+  }
+  function spStation(t) {
+    if (!has('greenhouse')) return;
+    const dl = daylight();
+    const w = Math.max(96, Math.min(150, W * 0.11));
+    const x = W * 0.27, y = soilY - 60;
+    ctx.fillStyle = metal(90, dl); ctx.fillRect(x - 3, y, 6, 56);
+    ctx.strokeStyle = metal(190, dl); ctx.lineWidth = 6; ctx.beginPath(); ctx.ellipse(x, y, w * 0.4, w * 0.14, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = metal(150, dl); ctx.beginPath(); ctx.roundRect(x - 12, y - 14, 24, 28, 6); ctx.fill();
+    for (let i = 0; i < 8; i++) { const a = t * 0.5 + i * Math.PI / 4; ctx.fillStyle = 'rgba(255,230,150,' + (0.4 + 0.6 * Math.max(0, Math.sin(t * 2 + i))).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(x + Math.cos(a) * w * 0.4, y + Math.sin(a) * w * 0.14, 1.8, 0, Math.PI * 2); ctx.fill(); }
+    ctx.fillStyle = col([40, 60, 120], dl); ctx.fillRect(x - 40, y - 4, 22, 8); ctx.fillRect(x + 18, y - 4, 22, 8);
+  }
+  function spDrones(t) {
+    for (const p of pests) {
+      const pos = pestPos(p); if (!pos) continue;
+      const x = pos.x, y = pos.y + Math.sin(t * 3 + p.flap) * 2;
+      ctx.fillStyle = '#7a2a2a'; ctx.beginPath(); ctx.moveTo(x - 8, y); ctx.lineTo(x, y - 6); ctx.lineTo(x + 8, y); ctx.lineTo(x, y + 6); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,60,60,' + (0.5 + 0.5 * Math.sin(t * 8)).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(x, y, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = '#5a2020'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(x - 8, y); ctx.lineTo(x - 13, y - 5); ctx.moveTo(x + 8, y); ctx.lineTo(x + 13, y - 5); ctx.stroke();
+    }
+  }
+  function spProbes(t) {
+    for (const c of critters) {
+      const fade = Math.min(1, c.age * 3, (c.life - c.age) * 2);
+      ctx.save(); ctx.globalAlpha = fade; ctx.translate(c.x, c.y); ctx.rotate(Math.sin(c.age) * 0.3);
+      ctx.fillStyle = '#d9dde8'; ctx.fillRect(-4, -4, 8, 8);
+      ctx.fillStyle = '#3a6fd8'; ctx.fillRect(-14, -2, 8, 4); ctx.fillRect(6, -2, 8, 4);
+      ctx.fillStyle = 'rgba(120,255,160,' + (0.5 + 0.5 * Math.sin(t * 6)).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(0, -7, 1.6, 0, Math.PI * 2); ctx.fill();
+      ctx.restore();
+    }
+  }
+  function spUpgrades(t) {
+    const dl = daylight();
+    if (has('barrel')) { const x = mailbox.x + mailbox.w + 22, y = soilY; shadow(x + 13, y + 5, 34, 4, 0.2); ctx.fillStyle = metal(150, dl); ctx.beginPath(); ctx.roundRect(x, y - 36, 26, 40, 6); ctx.fill(); ctx.fillStyle = 'rgba(160,230,255,0.5)'; ctx.fillRect(x + 4, y - 30, 18, 24); ctx.fillStyle = 'rgba(120,220,255,0.7)'; ctx.fillRect(x + 4, y - 18, 18, 12); ctx.fillStyle = '#fff'; ctx.font = '8px sans-serif'; ctx.textAlign = 'center'; ctx.fillText('ICE', x + 13, y - 20); }
+    const room = gate.x - 8;
+    if (has('compost')) { const x = room - (has('scarecrow') ? 56 : 0) - 40, y = soilY; shadow(x + 12, y + 5, 32, 4, 0.2); ctx.fillStyle = metal(110, dl); ctx.fillRect(x, y - 24, 26, 28); ctx.fillStyle = metal(80, dl); ctx.fillRect(x + 16, y - 40, 6, 18); ctx.fillStyle = 'rgba(255,150,60,' + (0.5 + 0.4 * Math.sin(t * 3)).toFixed(2) + ')'; ctx.fillRect(x + 4, y - 18, 10, 8); ctx.fillStyle = 'rgba(200,200,220,0.35)'; for (let i = 0; i < 3; i++) { const ph = (t * 0.5 + i * 0.33) % 1; ctx.beginPath(); ctx.arc(x + 19 + Math.sin(ph * 5) * 3, y - 42 - ph * 22, 2 + ph * 3, 0, Math.PI * 2); ctx.fill(); } }
+    if (has('scarecrow')) { const x = room - 28, y = soilY - 2; shadow(x, y + 6, 30, 4, 0.2); ctx.fillStyle = metal(90, dl); ctx.fillRect(x - 3, y - 40, 6, 42); ctx.fillStyle = metal(140, dl); ctx.beginPath(); ctx.roundRect(x - 10, y - 54, 20, 14, 4); ctx.fill(); ctx.save(); ctx.translate(x, y - 47); ctx.rotate(Math.sin(t) * 0.5); ctx.fillStyle = metal(60, dl); ctx.fillRect(0, -2, 18, 4); ctx.restore(); ctx.fillStyle = 'rgba(255,80,80,' + (0.5 + 0.5 * Math.sin(t * 5)).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(x, y - 58, 2, 0, Math.PI * 2); ctx.fill(); }
+    if (has('feeder')) { const x = Math.min(W - 30, gate.x + gate.w + 40), y = soilY - 44; ctx.fillStyle = metal(90, dl); ctx.fillRect(x - 1, y - 6, 2, 50); ctx.save(); ctx.translate(x, y - 10); ctx.rotate(-0.4); ctx.fillStyle = col([40, 60, 140], dl); ctx.fillRect(-14, -8, 28, 16); ctx.strokeStyle = 'rgba(160,200,255,0.6)'; ctx.lineWidth = 1; for (let i = -7; i <= 7; i += 7) { ctx.beginPath(); ctx.moveTo(i, -8); ctx.lineTo(i, 8); ctx.stroke(); } ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(14, 0); ctx.stroke(); ctx.restore(); }
+  }
+  function spAmbient(a, layer, t, fade) {
+    const dl = daylight();
+    if (layer === 'back') {
+      if (a.kind === 'rainbow') { for (let k = 0; k < 3; k++) { ctx.strokeStyle = 'hsla(' + (200 + k * 60) + ',80%,70%,' + (0.14 * fade).toFixed(2) + ')'; ctx.lineWidth = 18; ctx.beginPath(); for (let x = -20; x <= W + 20; x += 20) ctx.lineTo(x, 70 + k * 26 + Math.sin(x * 0.008 + t * 0.5 + k) * 30); ctx.stroke(); } return true; }
+      if (a.kind === 'flock') { ctx.fillStyle = 'rgba(220,225,240,' + (0.8 * fade).toFixed(2) + ')'; for (let k = 0; k < a.n; k++) { const bx = a.x + Math.abs(k - (a.n - 1) / 2) * 14, by = a.y + (k - (a.n - 1) / 2) * 7; ctx.beginPath(); ctx.moveTo(bx - 6, by + 2); ctx.lineTo(bx + 6, by); ctx.lineTo(bx - 6, by - 2); ctx.closePath(); ctx.fill(); ctx.fillStyle = 'rgba(120,200,255,' + (0.6 * fade).toFixed(2) + ')'; ctx.fillRect(bx - 9, by - 0.7, 3, 1.4); ctx.fillStyle = 'rgba(220,225,240,' + (0.8 * fade).toFixed(2) + ')'; } return true; }
+      if (a.kind === 'balloon') { ctx.save(); ctx.translate(a.x, a.y); ctx.globalAlpha = fade; ctx.fillStyle = col([170, 180, 200], dl); ctx.beginPath(); ctx.ellipse(0, 4, 26, 6, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'rgba(160,230,255,0.6)'; ctx.beginPath(); ctx.arc(0, -2, 10, Math.PI, 0); ctx.fill(); for (let i = -2; i <= 2; i++) { ctx.fillStyle = 'hsla(' + ((t * 200 + i * 72) % 360) + ',90%,65%,0.9)'; ctx.beginPath(); ctx.arc(i * 9, 7, 1.8, 0, Math.PI * 2); ctx.fill(); } ctx.restore(); return true; }
+      if (a.kind === 'plane') { const dir = a.vx > 0 ? 1 : -1; ctx.save(); ctx.translate(a.x, a.y); ctx.scale(dir, 1); ctx.globalAlpha = fade; const fg = ctx.createLinearGradient(-60, 0, -10, 0); fg.addColorStop(0, 'rgba(255,160,60,0)'); fg.addColorStop(1, 'rgba(255,200,90,0.9)'); ctx.fillStyle = fg; ctx.beginPath(); ctx.moveTo(-60, 0); ctx.lineTo(-10, -3); ctx.lineTo(-10, 3); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#e8ecf5'; ctx.beginPath(); ctx.moveTo(-10, -3); ctx.lineTo(8, -3); ctx.lineTo(14, 0); ctx.lineTo(8, 3); ctx.lineTo(-10, 3); ctx.closePath(); ctx.fill(); ctx.fillStyle = '#d33'; ctx.beginPath(); ctx.moveTo(-10, -3); ctx.lineTo(-14, -7); ctx.lineTo(-6, -3); ctx.moveTo(-10, 3); ctx.lineTo(-14, 7); ctx.lineTo(-6, 3); ctx.fill(); ctx.restore(); return true; }
+      return false;
+    }
+    if (a.kind === 'butterfly') { ctx.save(); ctx.translate(a.x, a.y); ctx.globalAlpha = fade; ctx.rotate(Math.sin(a.age) * 0.4); ctx.fillStyle = '#d9dde8'; ctx.fillRect(-3, -3, 6, 6); ctx.fillStyle = 'hsl(' + a.hue + ',70%,55%)'; ctx.fillRect(-11, -1.5, 7, 3); ctx.fillRect(4, -1.5, 7, 3); ctx.restore(); return true; }
+    if (a.kind === 'ladybug' || a.kind === 'snail') { const p = ambientPos(a); ctx.save(); ctx.translate(p.x, p.y); ctx.globalAlpha = fade; ctx.scale(a.dir, 1); ctx.fillStyle = a.kind === 'snail' ? '#c9b458' : '#e8ecf5'; ctx.beginPath(); ctx.roundRect(-5, -4, 10, 5, 2); ctx.fill(); ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(-3, 1.5, 1.6, 0, Math.PI * 2); ctx.arc(3, 1.5, 1.6, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'rgba(120,255,160,' + (0.5 + 0.5 * Math.sin(t * 5)).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(4, -5, 1, 0, Math.PI * 2); ctx.fill(); ctx.restore(); return true; }
+    if (a.kind === 'rabbit') { ctx.save(); ctx.translate(a.x, a.y); ctx.globalAlpha = fade; ctx.scale(a.vx > 0 ? 1 : -1, 1); ctx.fillStyle = '#e8ecf5'; ctx.beginPath(); ctx.roundRect(-10, -8, 20, 8, 3); ctx.fill(); ctx.fillStyle = '#333'; for (const wx of [-6, 0, 6]) { ctx.beginPath(); ctx.arc(wx, 1, 2.5, 0, Math.PI * 2); ctx.fill(); } ctx.fillStyle = '#3a6fd8'; ctx.fillRect(-8, -12, 8, 3); ctx.strokeStyle = '#aaa'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(6, -8); ctx.lineTo(6, -16); ctx.stroke(); ctx.restore(); return true; }
+    if (a.kind === 'seed') { ctx.fillStyle = 'rgba(120,220,255,' + (0.85 * fade).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(a.x, a.y - a.age * 6, 1.5, 0, Math.PI * 2); ctx.fill(); return true; }
+    return false;
+  }
+  function spMailbox(t) {
+    const { x, y, w, h, postH } = mailbox;
+    const dl = daylight();
+    const flagUp = unread > 0;
+    shadow(x + w / 2, y + postH + 2, w * 1.3, 4, 0.2);
+    ctx.fillStyle = metal(90, dl); ctx.fillRect(x + w / 2 - 4, y - 6, 8, postH + 6);
+    ctx.save(); ctx.translate(x + w / 2, y - h + 14); ctx.rotate(-0.5 + Math.sin(t * 0.4) * 0.1);
+    ctx.fillStyle = metal(200, dl); ctx.beginPath(); ctx.ellipse(0, 0, w * 0.6, w * 0.22, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = metal(120, dl); ctx.lineWidth = 1; ctx.beginPath(); ctx.ellipse(0, 0, w * 0.4, w * 0.14, 0, 0, Math.PI * 2); ctx.stroke();
+    ctx.fillStyle = metal(120, dl); ctx.fillRect(-1.5, -22, 3, 22); ctx.fillStyle = flagUp ? '#ffcb5c' : metal(160, dl); ctx.beginPath(); ctx.arc(0, -24, 3, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    if (flagUp) { const pulse = 0.5 + 0.5 * Math.sin(t * 3); ctx.strokeStyle = 'rgba(255,220,120,' + (0.3 + 0.4 * pulse).toFixed(2) + ')'; ctx.lineWidth = 1.5; for (let k = 1; k <= 3; k++) { ctx.beginPath(); ctx.arc(x + w / 2, y - h, 8 + k * 8 + pulse * 4, Math.PI * 1.15, Math.PI * 1.85); ctx.stroke(); } }
+    if (unread > 0) { ctx.font = 'bold 11px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillStyle = '#c94a3a'; ctx.beginPath(); ctx.arc(x + w / 2, y - h - 6, 9, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff'; ctx.fillText(String(unread), x + w / 2, y - h - 6); }
+  }
+  function spDesk(t) {
+    const st = deskState();
+    const on = st.mode === 'ready', queue = st.mode === 'queue' || st.mode === 'later';
+    const { x, y, w } = desk;
+    const dl = daylight();
+    ctx.fillStyle = metal(110, dl); ctx.beginPath(); ctx.roundRect(x, y - 30, w, 30, [4, 4, 0, 0]); ctx.fill();
+    ctx.fillStyle = metal(70, dl); ctx.fillRect(x + 4, y - 26, w - 8, 14);
+    ctx.fillStyle = on ? 'rgba(120,255,180,0.9)' : queue ? 'rgba(255,200,90,0.8)' : 'rgba(120,140,170,0.6)';
+    for (let i = 0; i < 3; i++) ctx.fillRect(x + 8, y - 23 + i * 4, (w - 16) * (0.5 + 0.5 * Math.abs(Math.sin(t * 1.5 + i))) * (on || queue ? 1 : 0.4), 2);
+    for (let i = 0; i < 4; i++) { ctx.fillStyle = 'hsla(' + (i * 90) + ',80%,60%,' + (on || queue ? 0.5 + 0.5 * Math.sin(t * 4 + i) : 0.25).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(x + 10 + i * 8, y - 6, 2, 0, Math.PI * 2); ctx.fill(); }
+    if (on || queue) { const g = ctx.createRadialGradient(x + w / 2, y - 20, 2, x + w / 2, y - 20, 40); g.addColorStop(0, (on ? 'rgba(120,255,180,' : 'rgba(255,200,90,') + (on ? 0.35 : 0.15) + ')'); g.addColorStop(1, 'rgba(120,255,180,0)'); ctx.fillStyle = g; ctx.fillRect(x + w / 2 - 40, y - 60, 80, 80); }
+    if (queuedNotes[st.s && st.s.id]) { ctx.fillStyle = '#c94a3a'; ctx.beginPath(); ctx.arc(x + w - 8, y - 34, 5, 0, Math.PI * 2); ctx.fill(); }
+  }
+  function spGate(t) {
+    const { x, y, w } = gate;
+    const dl = daylight();
+    shadow(x + w / 2, y + 4, w + 40, 5, 0.16);
+    // a hull wall with an airlock
+    ctx.fillStyle = metal(120, dl); ctx.fillRect(x + w + 4, y - 56, W - x - w - 4, 60);
+    ctx.fillStyle = metal(90, dl); for (let px = x + w + 4; px < W; px += 40) ctx.fillRect(px, y - 56, 2, 60);
+    ctx.fillStyle = metal(150, dl); ctx.fillRect(x + w + 4, y - 60, W - x - w - 4, 4);
+    for (let px = x + w + 24; px < W - 10; px += 40) { ctx.fillStyle = 'rgba(120,220,255,' + (0.4 + 0.4 * Math.sin(t * 2 + px)).toFixed(2) + ')'; ctx.fillRect(px - 6, y - 30, 12, 3); }
+    ctx.fillStyle = metal(140, dl); ctx.fillRect(x - 8, y - 70, 12, 76); ctx.fillRect(x + w - 4, y - 70, 12, 76); ctx.fillRect(x - 8, y - 74, w + 20, 6);
+    const pm = (focused() && focused().permissionMode) || '';
+    const openMode = !pm || pm === 'auto' || pm === 'bypassPermissions';
+    const open = !paused && openMode;
+    // the door slides up when open
+    const doorH = open ? 12 : 64;
+    ctx.fillStyle = metal(open ? 100 : 130, dl); ctx.fillRect(x + 4, y - 68, w - 8, doorH);
+    ctx.strokeStyle = metal(60, dl); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + w / 2, y - 68); ctx.lineTo(x + w / 2, y - 68 + doorH); ctx.stroke();
+    const lamp = paused ? '#ff5a4a' : open ? '#6fd38a' : pm === 'plan' ? '#ffcb5c' : '#ff8f4d';
+    ctx.fillStyle = lamp; ctx.beginPath(); ctx.arc(x + w / 2, y - 78, 3.5, 0, Math.PI * 2); ctx.fill();
+    if (pm === 'plan' && !paused) { ctx.fillStyle = 'rgba(20,30,50,0.9)'; ctx.beginPath(); ctx.roundRect(x + w / 2 - 24, y - 40, 48, 14, 3); ctx.fill(); ctx.fillStyle = '#ffcb5c'; ctx.font = '600 9px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('planning', x + w / 2, y - 33); }
+    if (paused) { ctx.strokeStyle = '#ff5a4a'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(x + w / 2 - 8, y - 44); ctx.lineTo(x + w / 2 + 8, y - 28); ctx.moveTo(x + w / 2 + 8, y - 44); ctx.lineTo(x + w / 2 - 8, y - 28); ctx.stroke(); }
+    drawGateVisitor(t);
+  }
+  function spReactor(r, s, t) {
+    if (!s) return;
+    const dl = daylight();
+    const left = s.night ? 0 : Math.max(0, Math.min(1, 1 - contextFraction(s) / compactAt));
+    const k = Math.max(0.8, Math.min(1.3, r.scale || 1));
+    const bx = r.x - 20 * k, by = r.y + r.h;
+    const gw = 24 * k, gh = 44 * k, gx = bx - gw / 2, gy = by - 5 * k - gh;
+    shadow(bx + 4, by + 2, gw + 14, 3, 0.2);
+    ctx.fillStyle = metal(110, dl); ctx.beginPath(); ctx.roundRect(gx - 4, gy - 6 * k, gw + 8, gh + 12 * k, 4); ctx.fill();
+    ctx.fillStyle = 'rgba(20,30,50,0.9)'; ctx.beginPath(); ctx.roundRect(gx, gy, gw, gh, 3); ctx.fill();
+    const fillH = (gh - 4) * 0.62, lvl = fillH * left;
+    const hue = 150 - 110 * (1 - left);
+    if (left > 0) { ctx.fillStyle = 'hsla(' + hue + ',90%,60%,0.9)'; ctx.fillRect(gx + 2, gy + gh - 2 - lvl, gw - 4, lvl); ctx.fillStyle = 'rgba(255,255,255,0.4)'; for (let i = 0; i < 3; i++) { const ph = (t * 0.7 + i * 0.37) % 1; ctx.fillRect(gx + 4 + i * 6 * k, gy + gh - 3 - ph * lvl, 2 * k, 1.2 * k); } }
+    const lineY = gy + gh - 2 - fillH;
+    ctx.strokeStyle = 'rgba(200,230,255,0.8)'; ctx.lineWidth = 1.2 * k; ctx.beginPath(); ctx.moveTo(gx + 2, lineY); ctx.lineTo(gx + gw - 2, lineY); ctx.stroke();
+    ctx.lineWidth = 1; for (const q of [0.75, 0.5, 0.25]) { const ty = gy + gh - 2 - fillH * q; ctx.beginPath(); ctx.moveTo(gx + 2, ty); ctx.lineTo(gx + 2 + 4 * k, ty); ctx.stroke(); }
+    ctx.fillStyle = 'rgba(200,230,255,0.85)'; ctx.font = (7 * k).toFixed(1) + 'px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText('max', gx + gw - 3, lineY - 1);
+    ctx.strokeStyle = metal(160, dl); ctx.lineWidth = 1.2 * k; ctx.beginPath(); ctx.roundRect(gx, gy, gw, gh, 3); ctx.stroke();
+    if (left > 0) { const low = left < 0.25, flick = low ? 0.5 + 0.5 * Math.abs(Math.sin(t * 17)) : 1; const gl = ctx.createRadialGradient(bx, gy + gh / 2, 4, bx, gy + gh / 2, (40 + 40 * left) * k); gl.addColorStop(0, 'hsla(' + hue + ',90%,65%,' + (0.35 * flick * (0.4 + 0.6 * left)).toFixed(2) + ')'); gl.addColorStop(1, 'hsla(' + hue + ',90%,65%,0)'); ctx.fillStyle = gl; ctx.fillRect(bx - 90, gy - 60, 180, 200); }
+    else { ctx.fillStyle = 'rgba(255,80,80,' + (0.4 + 0.5 * Math.abs(Math.sin(t * 4))).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(bx, gy - 3 * k, 2.5 * k, 0, Math.PI * 2); ctx.fill(); }
+    lanterns[s.id] = { x: bx, y: gy + gh / 2, w: gw, h: gh + 12 * k, left, pct: Math.round(100 * contextFraction(s)), night: Boolean(s.night) };
+  }
+  THEMES.space = {
+    id: 'space', name: 'Orbit', hat: 'space', icon: '🪐', price: 10000000, firefly: 'rgba(120,220,255,',
+    blurb: 'A planet that grows from dust to a ringed giant on a launch pad above a cratered moon. Stardust, cores, ice, starlight, and minerals; drills and tractor beams in the shop; drones, probes, a space station, and helpers in helmets.',
+    words: {
+      title: '🪐 Orbit of Claude', place: 'station', sap: 'stardust', seed: 'core', seeds: 'cores', plant: 'planet', plants: 'planets',
+      harvest: 'Collapse', harvested: 'collapsed', nothingToHarvest: 'nothing to collapse', sprouted: 'formed',
+      water: 'ice', light: 'starlight', nutrients: 'minerals', sunbeam: 'solar flare', puddle: 'comet dust', greenhouse: 'space station',
+      crowLanded: 'a rogue drone arrived', crowTitle: 'A rogue drone', birdTitle: 'A passing comet', birdFloat: '☄ +',
+      beeTitle: 'A probe', beeTip: 'Click it to dock the probe for a bonus before it drifts off.', beeVisit: 'a probe is orbiting', beeFloat: '🛰 docked +',
+      shopTitle: 'Orbital supply', shopTab: 'Station',
+      stages: ['dust', 'pebbles', 'planetesimal', 'protoplanet', 'rocky world', 'atmosphere', 'oceans', 'life', 'city lights', 'glowing', 'ringed', 'gas giant', 'ancient', 'mythic'],
+      mailboxTitle: 'Comms dish', mailboxEmpty: 'Transmissions arrive here only when Claude needs an answer from you.', deskTitle: 'Console', gateTitle: 'The airlock', lanternTitle: 'Reactor of', tend: 'click to gather stardust',
+      starTitle: 'A meteor', butterflyTitle: 'A satellite', catTitle: 'A cat', snailTitle: 'A slow rover', ladybugTitle: 'A bug-bot',
+      lanternOut: 'Powered down while the context is compacted. It restarts when compaction finishes.', lanternLeft: 'of the fuel left before compaction is due.', lanternLow: 'The core is flickering. Let auto-compact run or type /compact in the app.',
+    },
+    items: {
+      trowel: { name: 'Scoop', icon: '🥄' }, can: { name: 'Drill', icon: '⛏️' }, shears: { name: 'Mining laser', icon: '🔦' }, trellis: { name: 'Tractor beam', icon: '🧲' }, hive: { name: 'Mining fleet', icon: '🚀' },
+      longbeam: { name: 'Long flare', desc: 'The solar flare after Claude writes a file lasts 12, then 16 seconds instead of 8.' },
+      brightbeam: { name: 'Bright flare', icon: '🌟', desc: 'Clicks inside a solar flare pay four times instead of three.' },
+      puddle: { name: 'Thick comet dust', icon: '☄️', desc: 'Clicks while comet dust falls on a planet pay double instead of 1.5 times.' },
+      birdseed: { name: 'Comet net', icon: '🕸️', desc: 'Catching a passing comet pays three times as much.' },
+      hold: { desc: 'Hold the button down on a planet and it keeps clicking for you: 3 a second, then 4, 5, and 7, a touch faster than a fast thumb.' },
+      barrel: { name: 'Ice tank', icon: '🧊', desc: 'Ice holds 150 and drains a third slower.' },
+      compost: { name: 'Ore refinery', icon: '⚙️', desc: 'Shell commands give twice the minerals.' },
+      feeder: { name: 'Solar array', icon: '🔆', desc: 'Every tool call feeds ice, starlight, and minerals twice as much.' },
+      scarecrow: { name: 'Defense turret', icon: '🛰️', desc: 'Rogue drones from failed tools leave in 20 seconds instead of 60.' },
+      greenhouse: { name: 'Space station', icon: '🛸', desc: 'A station in orbit over the pad. Starlight drains a third slower and drones can no longer slow the trickle.' },
+    },
+    species: {
+      leafy: { name: 'Rocky world', blurb: 'The everyday planet. Grey rock, craters, then seas and lights.' },
+      sunflower: { name: 'Solar world', blurb: 'A golden world with a beacon that follows its star.' },
+      cactus: { name: 'Desert world', blurb: 'Sand and red-lit canyons. Ice drains slowly.' },
+      lavender: { name: 'Violet world', blurb: 'A purple world that thickens with moons as it grows.' },
+      rose: { name: 'Volcanic world', blurb: 'Rust and fire from the start, oceans from the sixth stage up.' },
+      bonsai: { name: 'Ringed moon', blurb: 'A small world that wears its rings early.' },
+      crystalfern: { name: 'Ice world', blurb: 'Translucent glowing ice. Yields 30% more.' },
+      moonbloom: { name: 'Silver moon', blurb: 'A single silver world that opens to the night.' },
+    },
+    palette: {
+      DAY: [[0.00, [8, 8, 24], [40, 30, 70]], [0.12, [8, 10, 30], [30, 40, 90]], [0.60, [6, 10, 34], [26, 44, 96]], [0.80, [10, 8, 30], [50, 30, 80]], [1.00, [4, 4, 16], [24, 16, 50]]],
+      NIGHT: [[3, 3, 12], [16, 12, 40]],
+    },
+    draw: { sky: spSky, ground: spGround, planter: spPlanter, plant: spPlanet, greenhouse: spStation, pests: spDrones, critters: spProbes, upgrades: spUpgrades, ambient: spAmbient, mailbox: spMailbox, desk: spDesk, gate: spGate, lantern: spReactor },
   };
 })();
 
