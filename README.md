@@ -163,6 +163,10 @@ per browser), and `?theme=wizard` in the address previews one.
   for subagents. Windows light at stage five, a crystal tops the spire at six,
   stones orbit from seven, and a storm ring crackles from eight. The props
   become an ether cistern, a ley stone, a warding sigil, and an astrolabe;
+  the sky has a pale violet sun with a corona by day and two moons at night;
+  the mailbox is an owl post with a crystal orb, the desk a lectern with a
+  spellbook and a hovering quill, and the gate an iron gate between rune-lit
+  stone pillars with a stone wall behind it;
   the ambient life becomes sprites, scarabs, toads, bats, an airship, a
   dragon, embers, slimes, and an aurora in place of the rainbow. 10M sap.
 

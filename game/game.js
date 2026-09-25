@@ -2356,7 +2356,11 @@ function drawGate(t) {
     ctx.fillRect(0, -40, w - 6, 4); ctx.fillRect(0, -16, w - 6, 4);
   }
   ctx.restore();
-
+  drawGateVisitor(t);
+}
+// Whoever is waiting at the gate for permission, with their speech bubble.
+function drawGateVisitor(t) {
+  const { x, y, w } = gate;
   const s = liveSessions().find((v) => v.status === 'needs_you');
   if (!s) return;
   const vx = x + w / 2, vy = y - 8 + Math.sin(t * 2.2) * 2;
@@ -3463,6 +3467,154 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     }
     return false;
   }
+  function wizSky(t) {
+    const [top, bottom] = skyColors(t);
+    const g = ctx.createLinearGradient(0, 0, 0, H);
+    g.addColorStop(0, rgb(top)); g.addColorStop(1, rgb(bottom));
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+    const f = dayFraction(), night = connected && isNight();
+    // stars show faintly even by day on the tower grounds
+    const starA = night ? 1 : 0.25 + Math.max(0, (f - 0.85) / 0.15) * 0.75;
+    if (connected) {
+      for (const s of stars) {
+        const a = (0.4 + 0.6 * Math.abs(Math.sin(t * 0.8 + s.tw))) * starA;
+        ctx.fillStyle = 'rgba(230,220,255,' + (a * (1 - weather.cloud)).toFixed(2) + ')';
+        ctx.beginPath(); ctx.arc(s.x * W, s.y * H, s.r, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    if (connected && night) {
+      // two moons: a large silver one and a small red one
+      const mx = W * 0.76, my = H * 0.17;
+      const gl = ctx.createRadialGradient(mx, my, 20, mx, my, 90); gl.addColorStop(0, 'rgba(200,190,255,0.25)'); gl.addColorStop(1, 'rgba(200,190,255,0)'); ctx.fillStyle = gl; ctx.fillRect(mx - 90, my - 90, 180, 180);
+      ctx.fillStyle = 'rgba(225,222,245,0.95)'; ctx.beginPath(); ctx.arc(mx, my, 26, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(180,175,210,0.5)'; for (const [dx, dy, r] of [[-8, -6, 5], [7, 4, 4], [-2, 12, 3]]) { ctx.beginPath(); ctx.arc(mx + dx, my + dy, r, 0, Math.PI * 2); ctx.fill(); }
+      ctx.fillStyle = 'rgba(230,110,90,0.9)'; ctx.beginPath(); ctx.arc(mx - 70, my + 40, 8, 0, Math.PI * 2); ctx.fill();
+    } else if (connected) {
+      // a pale violet sun with a slow corona
+      const sx = W * 0.08 + f * W * 0.84, sy = H * 0.62 - Math.sin(f * Math.PI) * H * 0.5;
+      const warmth = Math.max(0, 1 - Math.sin(f * Math.PI) * 1.4);
+      const r = 22 + weather.sun * 16 + warmth * 8;
+      const core = mix([235, 225, 255], [255, 150, 120], warmth);
+      const glow = ctx.createRadialGradient(sx, sy, r * 0.4, sx, sy, r * 4.5);
+      glow.addColorStop(0, rgb(core, 0.35 + weather.sun * 0.3)); glow.addColorStop(1, rgb(core, 0));
+      ctx.fillStyle = glow; ctx.fillRect(sx - r * 5, sy - r * 5, r * 10, r * 10);
+      ctx.strokeStyle = rgb(mix(core, [200, 160, 255], 0.5), 0.35); ctx.lineWidth = 2;
+      for (let k = 0; k < 3; k++) { ctx.beginPath(); ctx.ellipse(sx, sy, r * (1.6 + k * 0.35), r * (0.5 + k * 0.12), t * 0.15 + k * 1.1, 0, Math.PI * 2); ctx.stroke(); }
+      ctx.fillStyle = rgb(core, 0.95); ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill();
+    }
+    // rain comes in as dark violet wisps
+    if (weather.rain > 0.15) {
+      ctx.fillStyle = 'rgba(70,50,110,' + (weather.rain * 0.7).toFixed(2) + ')';
+      for (let i = 0; i < 6; i++) {
+        const cx = ((i + 0.5) / 6) * W + Math.sin(t * 0.3 + i) * 30, cy = 26 + (i % 2) * 18;
+        ctx.beginPath(); ctx.ellipse(cx, cy, W * 0.13, 16 + Math.sin(t + i) * 4, Math.sin(t * 0.2 + i) * 0.2, 0, Math.PI * 2); ctx.fill();
+      }
+    }
+    // clouds drift as thin streaks
+    if (weather.cloud > 0.05) {
+      ctx.fillStyle = 'rgba(210,200,240,' + (0.3 * weather.cloud).toFixed(2) + ')';
+      for (let i = 0; i < 4; i++) { const cx = ((i * 0.31 + t * 0.01) % 1.2 - 0.1) * W, cy = 40 + i * 28; ctx.beginPath(); ctx.ellipse(cx, cy, W * 0.12, 4, 0, 0, Math.PI * 2); ctx.fill(); }
+    }
+  }
+  function wizMailbox(t) {
+    // an owl post: a stone pedestal with a crystal orb; letters arrive as floating scrolls
+    const { x, y, w, h, postH } = mailbox;
+    const dl = daylight();
+    const flagUp = unread > 0;
+    shadow(x + w / 2, y + postH + 2, w * 1.3, 4, 0.2);
+    ctx.fillStyle = stone(90, dl); ctx.fillRect(x + w / 2 - 6, y, 12, postH); ctx.fillRect(x + w / 2 - 10, y + postH - 5, 20, 5);
+    ctx.fillStyle = stone(120, dl); ctx.beginPath(); ctx.roundRect(x, y - 8, w, 10, 3); ctx.fill();
+    const ox = x + w / 2, oy = y - h + 12, orb = w * 0.42;
+    const pulse = 0.5 + 0.5 * Math.sin(t * 3);
+    if (flagUp) { const gl = ctx.createRadialGradient(ox, oy, 4, ox, oy, orb * 3); gl.addColorStop(0, 'rgba(255,200,120,' + (0.3 + 0.3 * pulse).toFixed(2) + ')'); gl.addColorStop(1, 'rgba(255,200,120,0)'); ctx.fillStyle = gl; ctx.fillRect(ox - orb * 3, oy - orb * 3, orb * 6, orb * 6); }
+    const og = ctx.createRadialGradient(ox - orb * 0.3, oy - orb * 0.3, 2, ox, oy, orb);
+    og.addColorStop(0, flagUp ? 'rgba(255,240,200,0.95)' : 'rgba(220,210,255,0.9)'); og.addColorStop(1, flagUp ? 'rgba(255,160,80,0.9)' : 'rgba(90,70,160,0.9)');
+    ctx.fillStyle = og; ctx.beginPath(); ctx.arc(ox, oy, orb, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = stone(60, dl); ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(ox, oy + orb * 0.35, orb * 0.9, Math.PI * 0.15, Math.PI * 0.85); ctx.stroke();
+    if (flagUp) {
+      const sy = oy - orb - 12 + Math.sin(t * 2) * 3;
+      ctx.fillStyle = '#f3e6c4'; ctx.beginPath(); ctx.roundRect(ox - 9, sy - 6, 18, 12, 2); ctx.fill();
+      ctx.fillStyle = '#c94a3a'; ctx.fillRect(ox - 9, sy - 6, 18, 2.5); ctx.fillRect(ox - 9, sy + 3.5, 18, 2.5);
+    }
+    if (unread > 0) {
+      ctx.font = 'bold 11px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillStyle = '#c94a3a'; ctx.beginPath(); ctx.arc(ox, oy - orb - 30, 9, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#fff'; ctx.fillText(String(unread), ox, oy - orb - 30);
+    }
+  }
+  function wizDesk(t) {
+    // a lectern with an open spellbook and a floating quill; a candle for the lamp
+    const st = deskState();
+    const on = st.mode === 'ready', queue = st.mode === 'queue' || st.mode === 'later';
+    const { x, y, w } = desk;
+    const dl = daylight();
+    ctx.fillStyle = stone(80, dl); ctx.fillRect(x + w / 2 - 5, y - 26, 10, 26); ctx.fillRect(x + w / 2 - 14, y - 4, 28, 4);
+    ctx.fillStyle = stone(105, dl); ctx.beginPath(); ctx.moveTo(x + 4, y - 26); ctx.lineTo(x + w - 4, y - 32); ctx.lineTo(x + w - 4, y - 26); ctx.lineTo(x + 4, y - 20); ctx.closePath(); ctx.fill();
+    // the book
+    ctx.fillStyle = on ? '#fffdf2' : queue ? '#e6dfcf' : '#a9a29a';
+    ctx.beginPath(); ctx.moveTo(x + 9, y - 30); ctx.lineTo(x + w / 2, y - 34); ctx.lineTo(x + w - 9, y - 38); ctx.lineTo(x + w - 9, y - 30); ctx.lineTo(x + w / 2, y - 26); ctx.lineTo(x + 9, y - 22); ctx.closePath(); ctx.fill();
+    ctx.strokeStyle = on ? '#6b5a3a' : '#8a8478'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(x + w / 2, y - 34); ctx.lineTo(x + w / 2, y - 26); ctx.stroke();
+    ctx.fillStyle = on ? '#6b5a3a' : '#8a8478'; ctx.fillRect(x + 13, y - 28, 10, 1.2); ctx.fillRect(x + 13, y - 25, 7, 1.2);
+    if (on || queue) {
+      // the quill hovers over the page
+      ctx.save(); ctx.translate(x + w - 18, y - 48 + Math.sin(t * 2) * 3); ctx.rotate(-0.6 + Math.sin(t * 1.3) * 0.1);
+      ctx.fillStyle = '#efe8ff'; ctx.beginPath(); ctx.moveTo(0, 0); ctx.quadraticCurveTo(6, -10, 3, -22); ctx.quadraticCurveTo(-3, -12, 0, 0); ctx.fill();
+      ctx.strokeStyle = '#8a7cc0'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(0, 2); ctx.lineTo(2, -20); ctx.stroke();
+      ctx.restore();
+    }
+    // a candle where the lamp was
+    ctx.fillStyle = '#efe6d2'; ctx.fillRect(x + w - 16, y - 46, 5, 16);
+    ctx.fillStyle = on ? '#ffcb5c' : queue ? '#c9a24d' : '#6f6a63';
+    if (on || queue) {
+      const fl = 3 + Math.sin(t * 9) * 0.8;
+      ctx.beginPath(); ctx.ellipse(x + w - 13.5, y - 50, fl * 0.6, fl, 0, 0, Math.PI * 2); ctx.fill();
+      const g = ctx.createRadialGradient(x + w - 13.5, y - 50, 2, x + w - 13.5, y - 50, 40);
+      g.addColorStop(0, 'rgba(255,220,120,' + (on ? 0.5 + 0.1 * Math.sin(t * 2) : 0.2).toFixed(2) + ')'); g.addColorStop(1, 'rgba(255,220,120,0)');
+      ctx.fillStyle = g; ctx.fillRect(x + w - 54, y - 90, 80, 80);
+    }
+    if (queuedNotes[st.s && st.s.id]) { ctx.fillStyle = '#c94a3a'; ctx.beginPath(); ctx.arc(x + 32, y - 44, 5, 0, Math.PI * 2); ctx.fill(); }
+  }
+  function wizGate(t) {
+    // stone pillars, an iron gate, and a rune-lit wall running to the edge
+    const { x, y, w } = gate;
+    const dl = daylight();
+    shadow(x + w / 2, y + 4, w + 40, 5, 0.16);
+    const pillar = (px) => {
+      ctx.fillStyle = stone(110, dl); ctx.fillRect(px - 6, y - 70, 12, 76);
+      ctx.fillStyle = stone(140, dl); ctx.fillRect(px - 6, y - 70, 3, 76); ctx.fillRect(px - 8, y - 74, 16, 5);
+      ctx.fillStyle = 'rgba(150,120,255,' + (0.5 + 0.4 * Math.sin(t * 2 + px)).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(px, y - 80, 4, 0, Math.PI * 2); ctx.fill();
+    };
+    pillar(x); pillar(x + w);
+    // the wall
+    ctx.fillStyle = stone(96, dl); ctx.fillRect(x + w + 6, y - 46, W - x - w - 6, 50);
+    ctx.strokeStyle = 'rgba(0,0,0,0.25)'; ctx.lineWidth = 1;
+    for (let row = 0; row < 4; row++) { const yy = y - 46 + row * 12.5; ctx.beginPath(); ctx.moveTo(x + w + 6, yy); ctx.lineTo(W, yy); ctx.stroke(); for (let bx = x + w + 6 + (row % 2) * 14; bx < W; bx += 28) { ctx.beginPath(); ctx.moveTo(bx, yy); ctx.lineTo(bx, yy + 12.5); ctx.stroke(); } }
+    ctx.fillStyle = stone(130, dl); ctx.fillRect(x + w + 6, y - 50, W - x - w - 6, 4);
+    for (let rx = x + w + 30; rx < W - 10; rx += 60) { ctx.fillStyle = 'rgba(150,120,255,' + (0.35 + 0.3 * Math.sin(t * 1.5 + rx)).toFixed(2) + ')'; ctx.font = '600 10px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ᛉ', rx, y - 22); }
+    // the gate itself
+    const pm = (focused() && focused().permissionMode) || '';
+    const openMode = !pm || pm === 'auto' || pm === 'bypassPermissions';
+    const iron = col([50, 48, 60], dl), ironLight = col([90, 88, 105], dl);
+    ctx.save(); ctx.translate(x + 3, y);
+    const bars = (k) => { for (let gx = 6; gx < w - 6; gx += 11) { ctx.fillStyle = iron; ctx.fillRect(gx, -58, 3, 60); ctx.fillStyle = ironLight; ctx.fillRect(gx, -58, 1, 60); ctx.fillStyle = iron; ctx.beginPath(); ctx.moveTo(gx - 2, -58); ctx.lineTo(gx + 1.5, -66); ctx.lineTo(gx + 5, -58); ctx.closePath(); ctx.fill(); } ctx.fillStyle = iron; ctx.fillRect(0, -44, w - 6, 3); ctx.fillRect(0, -14, w - 6, 3); };
+    if (paused) {
+      bars(1);
+      ctx.strokeStyle = '#ff5a4a'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc((w - 6) / 2, -30, 9, 0, Math.PI * 2); ctx.stroke();
+      ctx.beginPath(); for (let i = 0; i < 5; i++) { const a1 = -Math.PI / 2 + i * Math.PI * 4 / 5; ctx.lineTo((w - 6) / 2 + Math.cos(a1) * 9, -30 + Math.sin(a1) * 9); } ctx.closePath(); ctx.stroke();
+    } else if (!openMode) {
+      bars(1);
+      ctx.fillStyle = ironLight; ctx.fillRect(w - 16, -31, 10, 4);
+      if (pm === 'plan') {
+        ctx.fillStyle = stone(150, dl); ctx.beginPath(); ctx.roundRect((w - 6) / 2 - 24, -36, 48, 14, 3); ctx.fill();
+        ctx.fillStyle = '#2b2040'; ctx.font = '600 9px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('planning', (w - 6) / 2, -29);
+      }
+    } else {
+      ctx.transform(0.35, -0.18, 0, 1, 0, 0); ctx.globalAlpha = 0.9;
+      bars(1);
+    }
+    ctx.restore();
+    drawGateVisitor(t);
+  }
   THEMES.wizard = {
     id: 'wizard', name: 'Wizard tower', hat: 'wizard', icon: '🔮', price: 10000000, firefly: 'rgba(180,230,255,',
     blurb: 'A tower that gains a floor per stage on a rune-carved plinth. Mana, runes, ether, starlight, and ley power; wands and grimoires in the shop; imps, wisps, an observatory, and apprentices in pointy hats.',
@@ -3502,7 +3654,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       DAY: [[0.00, [60, 30, 90], [230, 150, 140]], [0.12, [70, 60, 150], [180, 160, 220]], [0.60, [80, 90, 180], [190, 185, 235]], [0.80, [90, 60, 150], [240, 170, 150]], [0.92, [50, 25, 90], [200, 90, 110]], [1.00, [22, 12, 50], [100, 50, 100]]],
       NIGHT: [[8, 6, 26], [40, 24, 72]],
     },
-    draw: { ground: wizGround, planter: wizPlanter, plant: wizTower, greenhouse: wizObservatory, pests: wizImps, critters: wizWisps, upgrades: wizUpgrades, ambient: wizAmbient },
+    draw: { sky: wizSky, ground: wizGround, planter: wizPlanter, plant: wizTower, greenhouse: wizObservatory, pests: wizImps, critters: wizWisps, upgrades: wizUpgrades, ambient: wizAmbient, mailbox: wizMailbox, desk: wizDesk, gate: wizGate },
   };
 })();
 
