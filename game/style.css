@@ -233,3 +233,30 @@ button.on { background: var(--alert); color: #1a0d05; font-weight: 700; }
   #panel { width: calc(100% - 20px); }
   #board { display: none; }
 }
+
+/* ---------- almanac ---------- */
+#almanac { position: fixed; inset: 0; background: rgba(5, 8, 16, 0.55); display: flex; align-items: center; justify-content: center; padding: 16px; z-index: 20; }
+#almanac.hidden { display: none; }
+#almanac-card { width: min(680px, 100%); max-height: 90vh; display: flex; flex-direction: column; background: #f6efe0; color: #24201a; border-radius: 12px; box-shadow: 0 12px 50px rgba(0,0,0,0.6); overflow: hidden; }
+#almanac-head { display: flex; align-items: center; gap: 10px; padding: 10px 14px; background: #e9dfc8; border-bottom: 1px solid #d5c9ad; }
+#almanac-title { font-weight: 700; font-size: 15px; }
+#almanac-meta { flex: 1; font-size: 12px; color: #6b6250; }
+#almanac-close { flex: 0; min-width: 28px; padding: 3px 8px; background: rgba(0,0,0,0.08); color: #24201a; font-size: 14px; }
+#almanac-body { overflow: auto; padding: 12px 14px; display: flex; flex-direction: column; gap: 10px; font-size: 13px; }
+#almanac-rates { display: grid; grid-template-columns: repeat(auto-fit, minmax(120px, 1fr)); gap: 8px; }
+#almanac-rates .tile { background: rgba(0,0,0,0.05); border-radius: 8px; padding: 8px 10px; }
+#almanac-rates .tile .v { font-size: 18px; font-weight: 700; }
+#almanac-rates .tile .k { font-size: 11px; color: #6b6250; }
+#almanac-prestige { display: flex; align-items: center; gap: 12px; background: rgba(0,0,0,0.05); border-radius: 8px; padding: 10px 12px; }
+#almanac-prestige-text { flex: 1; font-size: 12px; color: #3b3428; }
+#prestige { flex: 0 0 auto; background: #2f7a3a; color: #fff; font-weight: 700; padding: 8px 14px; }
+#prestige:disabled { background: rgba(0,0,0,0.15); color: #6b6250; }
+.almanac-h { font-weight: 700; font-size: 13px; margin-top: 4px; }
+.almanac-h span { font-weight: 400; font-size: 11px; color: #6b6250; margin-left: 8px; }
+#almanac-perks, #almanac-ach { display: flex; flex-direction: column; gap: 6px; }
+#almanac-ach .upgrade { opacity: 0.55; }
+#almanac-ach .upgrade.owned { opacity: 1; }
+#almanac-runs { border-collapse: collapse; width: 100%; font-size: 12px; }
+#almanac-runs th, #almanac-runs td { text-align: right; padding: 4px 6px; border-bottom: 1px solid #e3d9c3; font-variant-numeric: tabular-nums; }
+#almanac-runs th:first-child, #almanac-runs td:first-child { text-align: left; }
+#almanac-runs th { color: #6b6250; font-weight: 600; }

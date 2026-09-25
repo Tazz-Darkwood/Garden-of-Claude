@@ -280,11 +280,28 @@ into sap; upgrades make your clicks better.
   windows is worth about twenty base clicks a second, so a trowel is 1,000
   sap (a minute's work), each tier costs about eight times more per point of
   power, and a tier becomes the better buy around level 15 of the one before.
-  Milestones double a tool at levels 25, 50, and 100.
+  Milestones double a tool at levels 25, 50, and 100. Seven tiers: trowel,
+  watering can, shears, trellis, sprinkler, beehive, orchard (each theme
+  renames them).
 - Runs 1 to 3 (2026-09-24) ran away: linear seed bonuses and square-root
   harvests; then cheap tools and free instant harvests; then prices still
   anchored to a single click rather than a click rate. Their ledgers are kept
   as `logs/economy-2026-09-24-run1.jsonl` through `-run3.jsonl`.
+- **Seasons (prestige).** The Almanac panel offers a new season once you have
+  earned 10M sap in the current one. It resets sap, tools, skills, garden
+  items, seeds, and the plant, and pays legacy points equal to the square
+  root of this season's lifetime sap over 10M (400M earns 6). Each unspent
+  point is a permanent +5% click power. Points can instead buy legacy perks:
+  a head start of ten trowel levels and the can, keeping a quarter of your
+  seeds, longer windows, slower meter drains, a higher combo cap, and the
+  greenhouse and scarecrow from the start. Themes, legacy, achievements, and
+  the ledger survive; the Almanac keeps a row per season. The act is named per
+  theme: new season, new age, big bang, extinction event, new tide, rebuild,
+  new menu.
+- **Achievements.** Fourteen small permanent bonuses of +0.5% click power
+  each, for things like a thousand clicks, ten harvests, a mythic plant,
+  petting the cat, seeing fireworks, owning every theme, and finishing
+  seasons. They unlock as you play and are listed in the Almanac.
 - **Shop.** Tools add flat click power and cost 15% more per level, doubling at
   levels 10, 25, and 50. Skill upgrades raise the combo cap, slow its drain, add
   crit chance and size, lengthen or brighten the windows, and (the mouse

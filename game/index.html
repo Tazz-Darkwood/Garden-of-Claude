@@ -32,6 +32,7 @@
     <button id="shop-open" title="Spend sap on upgrades">Shop</button>
     <button id="journal-open" title="Everything Claude said and did this session, in order">Journal</button>
     <button id="stats-open" title="Where the sap and seeds come from, minute by minute">Stats</button>
+    <button id="almanac-open" title="Legacy points, perks, achievements, and past seasons">Almanac</button>
     <button id="harvest" title="Harvest a fruiting plant for seeds, which raise your click power for good; you get a new random plant">Harvest</button>
     <button id="quit" class="quiet" title="Close the garden and stop its server. It starts again with your next Claude session.">Quit</button>
   </div>
@@ -45,6 +46,22 @@
       <textarea id="desk-text" rows="4" placeholder="Write to Claude (Enter sends, Shift+Enter for a new line)"></textarea>
       <div id="desk-note"></div>
       <div id="desk-buttons"><button id="desk-send">Send</button></div>
+    </div>
+  </div>
+</div>
+
+<div id="almanac" class="hidden">
+  <div id="almanac-card">
+    <div id="almanac-head"><div id="almanac-title">Almanac</div><div id="almanac-meta"></div><button id="almanac-close" title="Close">&#215;</button></div>
+    <div id="almanac-body">
+      <div id="almanac-rates"></div>
+      <div id="almanac-prestige"><div id="almanac-prestige-text"></div><button id="prestige">New season</button></div>
+      <div class="almanac-h">Legacy perks <span>spend points on permanent changes; a spent point no longer gives its +5%</span></div>
+      <div id="almanac-perks"></div>
+      <div class="almanac-h">Achievements <span>each one is a permanent +0.5% click power</span></div>
+      <div id="almanac-ach"></div>
+      <div class="almanac-h">Past seasons</div>
+      <table id="almanac-runs"></table>
     </div>
   </div>
 </div>

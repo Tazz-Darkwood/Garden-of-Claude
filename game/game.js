@@ -28,7 +28,7 @@ const GARDEN_WORDS = {
   water: 'water', light: 'light', nutrients: 'nutrients', sunbeam: 'sunbeam', puddle: 'puddle', greenhouse: 'greenhouse',
   crowLanded: 'a crow landed', crowTitle: 'A crow', birdTitle: 'A passing bird', birdFloat: '🐦 +',
   beeTitle: 'A bee', beeTip: 'Click it to pollinate the plant for a bonus before it flies off.', beeVisit: 'a bee is visiting', beeFloat: '🐝 pollinated +',
-  shopTitle: 'Garden shop', shopTab: 'Garden', stages: STAGE_NAMES,
+  shopTitle: 'Garden shop', shopTab: 'Garden', stages: STAGE_NAMES, prestige: 'New season',
   mailboxTitle: 'Mailbox', mailboxEmpty: 'Letters arrive here only when Claude needs an answer from you.', deskTitle: 'Writing desk', gateTitle: 'The gate', lanternTitle: 'Lantern of', tend: 'click to tend',
   starTitle: 'A shooting star', butterflyTitle: 'A butterfly', catTitle: 'A cat', snailTitle: 'A snail', ladybugTitle: 'A ladybug',
   lanternOut: 'Out while the context is compacted. It is relit when compaction finishes.', lanternLeft: 'of the light left before compaction is due.', lanternLow: 'It is guttering. Let auto-compact run or type /compact in the app.',
@@ -57,7 +57,15 @@ function stageProgress(g) {
   return Math.min(1, (g - a) / (b - a));
 }
 
-const garden = Object.assign({ sap: 0, lifetime: 0, seeds: 0, harvests: 0, clicks: 0, crits: 0, events: 0, born: Date.now(), levels: {} }, loadJSON(SAVE_KEY) || {});
+const garden = Object.assign({ sap: 0, lifetime: 0, seeds: 0, harvests: 0, clicks: 0, crits: 0, events: 0, born: Date.now(), levels: {}, legacy: 0, legacySpent: 0, perks: {}, runs: [], runLifetime: null, runStart: 0, maxStage: 0, petted: 0, fireworks: 0, achievements: {} }, loadJSON(SAVE_KEY) || {});
+// Older saves (and saves adopted from the server) may lack the season fields.
+function normalizeGarden() {
+  if (garden.runLifetime == null || garden.runLifetime > garden.lifetime) garden.runLifetime = garden.lifetime;
+  if (!garden.runStart) garden.runStart = garden.born || Date.now();
+  garden.perks = garden.perks || {}; garden.runs = garden.runs || []; garden.achievements = garden.achievements || {};
+  garden.legacy = garden.legacy || 0; garden.legacySpent = garden.legacySpent || 0;
+}
+normalizeGarden();
 garden.levels = garden.levels || {};
 const plants = loadJSON(PLANTS_KEY) || {};
 const prefs = Object.assign({ sound: false }, loadJSON(PREF_KEY) || {});
@@ -116,7 +124,9 @@ const ITEMS = [
   { id: 'can', cat: 'tool', name: 'Watering can', icon: '🚰', base: 50000, factor: 1.15, max: 999, power: 6, desc: 'Adds 6 click power per level.' },
   { id: 'shears', cat: 'tool', name: 'Pruning shears', icon: '✂️', base: 2000000, factor: 1.15, max: 999, power: 40, desc: 'Adds 40 click power per level.' },
   { id: 'trellis', cat: 'tool', name: 'Trellis', icon: '🪜', base: 60000000, factor: 1.15, max: 999, power: 250, desc: 'Adds 250 click power per level.' },
+  { id: 'sprinkler', cat: 'tool', name: 'Sprinkler', icon: '💦', base: 350000000, factor: 1.15, max: 999, power: 700, desc: 'Adds 700 click power per level.' },
   { id: 'hive', cat: 'tool', name: 'Beehive', icon: '🐝', base: 1500000000, factor: 1.15, max: 999, power: 1600, desc: 'Adds 1,600 click power per level.' },
+  { id: 'orchard', cat: 'tool', name: 'Orchard', icon: '🌳', base: 45000000000, factor: 1.15, max: 999, power: 12000, desc: 'Adds 12,000 click power per level.' },
 
   { id: 'rhythm', cat: 'skill', name: 'Rhythm', icon: '🥁', base: 40000, factor: 15, max: 3, desc: 'Raises the combo cap from ×2 to ×2.5, ×3, then ×3.5.' },
   { id: 'steady', cat: 'skill', name: 'Steady hands', icon: '🖐️', base: 70000, factor: 14, max: 2, desc: 'The combo takes 12, then 16 seconds to drain instead of 8.' },
@@ -150,12 +160,18 @@ function toolsPower() {
   for (const u of ITEMS) if (u.cat === 'tool') p += toolPower(u);
   return p;
 }
-function clickPower() { return toolsPower() * seedBonus(); }
-const comboCap = () => [2, 2.5, 3, 3.5][Math.min(3, lvl('rhythm'))];
+const perk = (id) => Boolean(garden.perks && garden.perks[id]);
+const achievementCount = () => Object.keys(garden.achievements || {}).length;
+// Legacy: +5% click power per unspent point; achievements: +0.5% each. Both survive a new season.
+const legacyMult = () => (1 + 0.05 * (garden.legacy || 0)) * (1 + 0.005 * achievementCount());
+function clickPower() { return toolsPower() * seedBonus() * legacyMult(); }
+const comboCap = () => [2, 2.5, 3, 3.5][Math.min(3, lvl('rhythm'))] + (perk('secondwind') ? 0.5 : 0);
+const puddleMs = () => (perk('longlight') ? 9000 : 6000);
+const drainMult = () => (perk('patientsoil') ? 0.75 : 1);
 const comboSeconds = () => 8 + 4 * lvl('steady');
 const critChance = () => 0.01 + 0.01 * lvl('lucky');
 const critMult = () => 5 + 2.5 * lvl('bigcrit');
-const sunbeamSeconds = () => 8 + 4 * lvl('longbeam');
+const sunbeamSeconds = () => (8 + 4 * lvl('longbeam')) * (perk('longlight') ? 1.5 : 1);
 const sunbeamMult = () => (has('brightbeam') ? 4 : 3);
 const puddleMult = () => (has('puddle') ? 2 : 1.5);
 const birdMult = () => (has('birdseed') ? 3 : 1);
@@ -179,6 +195,126 @@ const passivePower = () => Math.sqrt(clickPower());
 // ---------- ledger: where every drop of sap comes from ----------
 const LEDGER_KEY = 'claude-garden-ledger-v6';
 const SOURCES = ['click', 'crit', 'window', 'trickle', 'burst', 'shoo', 'bird'];
+
+// ---------- seasons: prestige, legacy perks, achievements ----------
+// A new season resets sap, tools, skills, garden items, seeds, and the plant,
+// and pays legacy points: sqrt(lifetime this season / 10M). Each unspent
+// point is a permanent +5% click power; points can also buy perks below.
+const LEGACY_DIV = 1e7;
+function legacyGain() { return Math.floor(Math.sqrt((garden.runLifetime || 0) / LEGACY_DIV)); }
+const PERKS = [
+  { id: 'headstart', name: 'Head start', cost: 1, desc: 'Every season begins with ten trowel levels and the watering can.' },
+  { id: 'deeproots', name: 'Deep roots', cost: 2, desc: 'Keep a quarter of your seeds through a new season.' },
+  { id: 'longlight', name: 'Long light', cost: 2, desc: 'Sunbeams and puddles last half again as long.' },
+  { id: 'patientsoil', name: 'Patient soil', cost: 2, desc: 'Meters drain a quarter slower.' },
+  { id: 'secondwind', name: 'Second wind', cost: 3, desc: 'The combo cap rises by half.' },
+  { id: 'greenkey', name: 'Greenhouse key', cost: 3, desc: 'The greenhouse and scarecrow are yours from the start of every season.' },
+];
+const ACHIEVEMENTS = [
+  { id: 'clicks1k', name: 'Green thumb', desc: 'A thousand clicks.', check: () => garden.clicks >= 1000 },
+  { id: 'clicks100k', name: 'Calloused', desc: 'A hundred thousand clicks.', check: () => garden.clicks >= 100000 },
+  { id: 'held10k', name: 'Mouse saved', desc: 'Ten thousand held clicks.', check: () => (garden.held || 0) >= 10000 },
+  { id: 'crits1k', name: 'Lucky streak', desc: 'A thousand crits.', check: () => garden.crits >= 1000 },
+  { id: 'harvests10', name: 'Ten harvests', desc: 'Harvested ten plants.', check: () => garden.harvests >= 10 },
+  { id: 'seeds100', name: 'Seed bank', desc: 'A hundred seeds earned.', check: () => ledger.seeds >= 100 },
+  { id: 'mythic', name: 'Mythic', desc: 'Grew a plant to mythic.', check: () => (garden.maxStage || 0) >= 13 },
+  { id: 'cat', name: 'Cat person', desc: 'Petted the cat.', check: () => (garden.petted || 0) >= 1 },
+  { id: 'cat10', name: 'Regular', desc: 'Petted the cat ten times.', check: () => (garden.petted || 0) >= 10 },
+  { id: 'fireworks', name: 'Shipped', desc: 'Saw the fireworks for a push.', check: () => (garden.fireworks || 0) >= 1 },
+  { id: 'themes', name: 'Collector', desc: 'Owns every theme.', check: () => Object.keys(THEMES).every((id) => themeOwned(id)) },
+  { id: 'lifetime1b', name: 'Billionaire', desc: 'A billion lifetime sap.', check: () => garden.lifetime >= 1e9 },
+  { id: 'prestige1', name: 'New season', desc: 'Started a new season.', check: () => (garden.runs || []).length >= 1 },
+  { id: 'prestige5', name: 'Old hand', desc: 'Started five new seasons.', check: () => (garden.runs || []).length >= 5 },
+];
+let achievementClock = 0;
+function checkAchievements(dt) {
+  achievementClock -= dt; if (achievementClock > 0) return; achievementClock = 2;
+  if (!isWriter) return;   // only the window that plays unlocks; mirrors would re-announce after every pull
+  for (const a of ACHIEVEMENTS) {
+    if (garden.achievements[a.id]) continue;
+    let ok = false; try { ok = a.check(); } catch { ok = false; }
+    if (!ok) continue;
+    garden.achievements[a.id] = Date.now();
+    fly('achievement: ' + a.name + ' (+0.5% clicks)', '#ffcb5c');
+    pushTicker('achievement unlocked: ' + a.name + ' · ' + a.desc, 'ok');
+    recordEvent('achievement: ' + a.name, 0);
+  }
+}
+function applyStartPerks() {
+  if (perk('headstart')) { garden.levels.trowel = Math.max(garden.levels.trowel || 0, 10); garden.levels.can = Math.max(garden.levels.can || 0, 1); }
+  if (perk('greenkey')) { garden.levels.greenhouse = 1; garden.levels.scarecrow = 1; }
+}
+function prestige() {
+  const gain = legacyGain(); if (gain < 1) return;
+  claimWriter();
+  garden.runs.push({ started: garden.runStart || garden.born, ended: Date.now(), lifetime: garden.runLifetime || 0, seeds: garden.seeds, harvests: garden.harvests, legacy: gain });
+  if (garden.runs.length > 60) garden.runs.shift();
+  garden.legacy = (garden.legacy || 0) + gain;
+  const keep = {}; for (const [k, v] of Object.entries(garden.levels)) if (k.startsWith('theme:')) keep[k] = v;
+  garden.levels = keep;
+  garden.sap = 0; garden.runLifetime = 0; garden.runStart = Date.now();
+  garden.seeds = perk('deeproots') ? Math.floor(garden.seeds * 0.25) : 0;
+  applyStartPerks();
+  for (const p of Object.values(plants)) { p.sap = 0; p.grown = 0; p.clicks = 0; p.born = Date.now(); p.species = pickSpecies(); }
+  combo = 0;
+  recordEvent(W_('prestige') + ': +' + gain + ' legacy', 0);
+  pushTicker(W_('prestige') + ' · +' + gain + ' legacy point' + (gain === 1 ? '' : 's') + ' · ' + W_('sap') + ', tools, and ' + W_('seeds') + ' start over', 'you');
+  dawnFlash = 1.6;
+  saveJSON(SAVE_KEY, garden); saveJSON(PLANTS_KEY, plants);
+  shopSig = ''; renderAlmanac(); updateHud();
+}
+function renderAlmanac() {
+  const gain = legacyGain(), pts = garden.legacy || 0, ach = achievementCount();
+  const tiles = [
+    [pts, 'legacy points'],
+    ['+' + Math.round(5 * pts) + '%', 'click power from legacy'],
+    [ach + '/' + ACHIEVEMENTS.length, 'achievements (+' + (0.5 * ach).toFixed(1) + '%)'],
+    [garden.runs.length, 'seasons finished'],
+    [fmt(garden.runLifetime || 0), W_('sap') + ' this season'],
+  ];
+  $('almanac-rates').innerHTML = tiles.map(([v, k]) => '<div class="tile"><div class="v">' + esc(String(v)) + '</div><div class="k">' + esc(k) + '</div></div>').join('');
+  $('almanac-meta').textContent = 'season ' + (garden.runs.length + 1) + ' · since ' + new Date(garden.runStart || garden.born).toLocaleDateString();
+  const nextAt = Math.pow(gain + 1, 2) * LEGACY_DIV;
+  $('almanac-prestige-text').textContent = gain >= 1
+    ? W_('prestige') + ' now for +' + gain + ' legacy point' + (gain === 1 ? '' : 's') + ' (next one at ' + fmt(nextAt) + ' ' + W_('sap') + ' this season). It resets ' + W_('sap') + ', tools, skills, ' + W_('place') + ' items, ' + W_('seeds') + ', and the ' + W_('plant') + '. Themes, legacy, achievements, and the ledger stay.'
+    : 'The first legacy point needs ' + fmt(LEGACY_DIV) + ' ' + W_('sap') + ' earned this season (you are at ' + fmt(garden.runLifetime || 0) + '). Every point after that costs more: the next one arrives at ' + fmt(nextAt) + '.';
+  if (!armed.prestige) $('prestige').textContent = W_('prestige');
+  $('prestige').disabled = gain < 1;
+  const perksEl = $('almanac-perks'); perksEl.innerHTML = '';
+  for (const p of PERKS) {
+    const owned = perk(p.id);
+    const row = document.createElement('div'); row.className = 'upgrade' + (owned ? ' owned' : '');
+    const icon = document.createElement('div'); icon.className = 'icon'; icon.textContent = owned ? '✅' : '🔒'; row.appendChild(icon);
+    const text = document.createElement('div'); text.className = 'text';
+    const name = document.createElement('div'); name.className = 'name'; name.textContent = p.name;
+    const desc = document.createElement('div'); desc.className = 'desc'; desc.textContent = p.desc;
+    text.appendChild(name); text.appendChild(desc); row.appendChild(text);
+    const btn = document.createElement('button'); btn.textContent = owned ? 'Owned' : p.cost + ' point' + (p.cost === 1 ? '' : 's'); btn.disabled = owned || pts < p.cost;
+    btn.addEventListener('click', () => {
+      if (perk(p.id) || (garden.legacy || 0) < p.cost) return;
+      claimWriter();
+      garden.legacy -= p.cost; garden.legacySpent = (garden.legacySpent || 0) + p.cost; garden.perks[p.id] = true;
+      applyStartPerks();
+      recordEvent('legacy perk: ' + p.name, 0); pushTicker('legacy perk: ' + p.name.toLowerCase(), 'you');
+      saveJSON(SAVE_KEY, garden); shopSig = ''; renderAlmanac(); updateHud();
+    });
+    row.appendChild(btn); perksEl.appendChild(row);
+  }
+  const achEl = $('almanac-ach'); achEl.innerHTML = '';
+  for (const a of ACHIEVEMENTS) {
+    const when = garden.achievements[a.id];
+    const row = document.createElement('div'); row.className = 'upgrade' + (when ? ' owned' : '');
+    const icon = document.createElement('div'); icon.className = 'icon'; icon.textContent = when ? '🏅' : '·'; row.appendChild(icon);
+    const text = document.createElement('div'); text.className = 'text';
+    const name = document.createElement('div'); name.className = 'name'; name.textContent = a.name;
+    const desc = document.createElement('div'); desc.className = 'desc'; desc.textContent = a.desc + (when ? ' Unlocked ' + new Date(when).toLocaleDateString() + '.' : '');
+    text.appendChild(name); text.appendChild(desc); row.appendChild(text); achEl.appendChild(row);
+  }
+  const runs = garden.runs;
+  $('almanac-runs').innerHTML = runs.length
+    ? '<tr><th>season</th><th>started</th><th>length</th><th>' + esc(W_('sap')) + '</th><th>' + esc(W_('seeds')) + '</th><th>legacy</th></tr>' + runs.map((r, i) => { const mins = Math.round((r.ended - r.started) / 60000); return '<tr><td>' + (i + 1) + '</td><td>' + new Date(r.started).toLocaleDateString() + '</td><td>' + (mins >= 60 ? Math.floor(mins / 60) + 'h ' + (mins % 60) + 'm' : mins + 'm') + '</td><td>' + fmt(r.lifetime) + '</td><td>' + r.seeds + '</td><td>+' + r.legacy + '</td></tr>'; }).join('')
+    : '<tr><td>No season finished yet. This one has run ' + Math.round((Date.now() - (garden.runStart || garden.born)) / 3600000) + ' hours of wall-clock time.</td></tr>';
+}
 const SOURCE_COLORS = { click: '#6fd38a', crit: '#ffcb5c', window: '#ff8f4d', trickle: '#5aa9ff', burst: '#c7b3ff', shoo: '#b98b5a', bird: '#9ad9a8' };
 const ledger = Object.assign({ totals: {}, minutes: [], events: [], spent: 0, seeds: 0 }, loadJSON(LEDGER_KEY) || {});
 pullSave();
@@ -577,7 +713,7 @@ function tickLanes(dt) {
 // ---------- earning ----------
 function earn(sid, amount, x, y, label, cls, source) {
   const p = plantFor(sid);
-  p.sap += amount; garden.sap += amount; garden.lifetime += amount;
+  p.sap += amount; garden.sap += amount; garden.lifetime += amount; garden.runLifetime = (garden.runLifetime || 0) + amount;
   record(source || 'click', amount);
   if (x != null) floaters.push({ x, y, text: (label || '+') + fmt(amount), age: 0, cls: cls || '' });
 }
@@ -592,7 +728,7 @@ function pestsOn(sid) { return pests.filter((p) => p.sid === sid).length; }
 function windowMult(sid) {
   let m = 1, why = '';
   if (sunbeams[sid] && sunbeams[sid] > Date.now()) { m *= sunbeamMult(); why = W_('sunbeam'); }
-  if (lastRain[sid] && Date.now() - lastRain[sid] < 6000) { m *= puddleMult(); why = why ? why + '+' + W_('puddle') : W_('puddle'); }
+  if (lastRain[sid] && Date.now() - lastRain[sid] < puddleMs()) { m *= puddleMult(); why = why ? why + '+' + W_('puddle') : W_('puddle'); }
   return { m, why };
 }
 
@@ -823,7 +959,7 @@ function updateHud() {
   $('stage').title = plant ? speciesName(sp) + ' (' + RARITY[sp.rarity].name + '): ' + speciesBlurb(sp) + ' This ' + stageName(si) + ' ' + W_('plant') + ' multiplies every click by ' + yieldMult(plant).toFixed(1) + '. ' + (thirsty ? 'It is not growing: its meters are too low. Claude’s reads, writes, and commands fill them.' : wait != null ? 'Next stage in about ' + Math.floor(wait / 60) + 'm ' + (wait % 60) + 's at the current meters.' : '') + ' Harvest trades the multiplier for permanent seeds and a new random plant.' : '';
   $('growth').style.width = (plant ? plantProgress(plant) * 100 : 0).toFixed(1) + '%';
   const owned = ITEMS.filter((u) => has(u.id)).length;
-  $('seeds').textContent = garden.seeds + ' ' + (garden.seeds === 1 ? W_('seed') : W_('seeds')) + ' (+' + Math.round((seedBonus() - 1) * 100) + '% clicks) · ' + fmt(garden.lifetime) + ' lifetime ' + W_('sap') + ' · ' + owned + '/' + ITEMS.length + ' items' + (isWriter ? '' : adoptedRemote ? ' · mirroring another window' : '');
+  $('seeds').textContent = garden.seeds + ' ' + (garden.seeds === 1 ? W_('seed') : W_('seeds')) + ' (+' + Math.round((seedBonus() - 1) * 100) + '% clicks) · ' + fmt(garden.lifetime) + ' lifetime ' + W_('sap') + ' · ' + owned + '/' + ITEMS.length + ' items' + (garden.legacy || achievementCount() ? ' · legacy +' + Math.round((legacyMult() - 1) * 100) + '%' : '') + (isWriter ? '' : adoptedRemote ? ' · mirroring another window' : '');
   const shopLabel = 'Shop' + (ITEMS.some((u) => lvl(u.id) < u.max && garden.sap >= costOf(u)) ? ' •' : '');
   if ($('shop-open').textContent !== shopLabel) $('shop-open').textContent = shopLabel;
   const hv = $('harvest');
@@ -1027,7 +1163,7 @@ function renderStats() {
     'click  = power ' + fmt(clickPower()) + ' × plant ×' + (p ? yieldMult(p).toFixed(1) : '1') + ' × meters ' + mf.toFixed(2) + ' × combo (1..' + comboCap() + ') × window (sunbeam ×' + sunbeamMult() + ', puddle ×' + puddleMult() + ') × crit (' + Math.round(critChance() * 100) + '% for ×' + critMult() + ')\n' +
     'trickle = ' + TUNING.trickle + ' × √power × meters per second while Claude works = ' + fmt(TUNING.trickle * passivePower() * mf) + '/s now\n' +
     'burst  = ' + TUNING.burst + ' × √power × meters per tool call Claude makes = ' + fmt(TUNING.burst * passivePower() * mf) + ' each\n' +
-    'power  = (1 + tools ' + fmt(toolsPower() - 1) + ') × (1 + 0.25 × √' + garden.seeds + ' seeds = ' + seedBonus().toFixed(2) + ')\n' +
+    'power  = (1 + tools ' + fmt(toolsPower() - 1) + ') × (1 + 0.25 × √' + garden.seeds + ' seeds = ' + seedBonus().toFixed(2) + ') × legacy ' + legacyMult().toFixed(2) + '\n' +
     'plant  = grows one stage per ' + STAGE_MINUTES + ' healthy minutes (meters above half), ×(1 + 0.3 × stage) on every click; harvest = 1 seed at fruiting + 1 per stage beyond, plant resets';
 
   $('stats-events').innerHTML = ledger.events.slice(-40).reverse().map((e) => {
@@ -1036,6 +1172,10 @@ function renderStats() {
   }).join('') || '<div>No harvests or purchases yet.</div>';
 }
 $('stats-open').addEventListener('click', () => { renderStats(); showPanel('stats'); });
+$('almanac-open').addEventListener('click', () => { renderAlmanac(); showPanel('almanac'); });
+$('almanac-close').addEventListener('click', () => $('almanac').classList.add('hidden'));
+$('almanac').addEventListener('click', (e) => { if (e.target === $('almanac')) $('almanac').classList.add('hidden'); });
+$('prestige').addEventListener('click', () => armedClick('prestige', 'Sure? ' + W_('prestige'), () => { prestige(); }));
 $('stats-close').addEventListener('click', () => $('stats').classList.add('hidden'));
 $('stats').addEventListener('click', (e) => { if (e.target === $('stats')) $('stats').classList.add('hidden'); });
 setInterval(() => { if (!$('stats').classList.contains('hidden')) renderStats(); }, 5000);
@@ -1045,7 +1185,7 @@ $('journal-close').addEventListener('click', () => $('journal').classList.add('h
 $('journal').addEventListener('click', (e) => { if (e.target === $('journal')) $('journal').classList.add('hidden'); });
 
 // only one panel at a time
-const PANELS = ['shop', 'journal', 'stats', 'desk', 'letter'];
+const PANELS = ['shop', 'journal', 'stats', 'desk', 'letter', 'almanac'];
 function showPanel(id) { for (const p of PANELS) if (p !== id) $(p).classList.add('hidden'); $(id).classList.remove('hidden'); }
 $('shop-open').addEventListener('click', () => { renderShop(true); showPanel('shop'); });
 $('shop-close').addEventListener('click', () => $('shop').classList.add('hidden'));
@@ -1462,6 +1602,8 @@ $('sound').addEventListener('click', () => { prefs.sound = !prefs.sound; saveJSO
 // ---------- simulation ----------
 let hudClock = 0;
 function tick(dt) {
+  normalizeGarden();
+  checkAchievements(dt);
   const held = pendingWeather();
   for (const k in weather) weather[k] = held.has(k) ? Math.max(weather[k], 0.45) : Math.max(0, weather[k] - dt * (k === 'wind' ? 0.25 : 0.12));
   tickCritters(dt, held);
@@ -1474,15 +1616,16 @@ function tick(dt) {
     while (holding.acc >= 1) { holding.acc -= 1; click(holding.sid, holding.x + (Math.random() - 0.5) * 12, holding.y + (Math.random() - 0.5) * 12, true); }
   }
   // meters drain over fifteen to twenty minutes; an ordinary hour of Claude's work refills them
-  const waterDrain = has('barrel') ? 0.06 : 0.09;
-  const lightDrain = has('greenhouse') ? 0.075 : 0.11;
+  const waterDrain = (has('barrel') ? 0.06 : 0.09) * drainMult();
+  const lightDrain = (has('greenhouse') ? 0.075 : 0.11) * drainMult();
   const working = anyoneWorking();
   const power = passivePower();
   for (const [sid, p] of Object.entries(plants)) {
     const sp = speciesOf(p);
     p.water = Math.max(0, p.water - dt * waterDrain * sp.water);
     p.light = Math.max(0, p.light - dt * lightDrain * sp.light);
-    p.nutrients = Math.max(0, (p.nutrients || 0) - dt * 0.09);
+    p.nutrients = Math.max(0, (p.nutrients || 0) - dt * 0.09 * drainMult());
+    if (plantStage(p) > (garden.maxStage || 0)) garden.maxStage = plantStage(p);
     // the plant grows while it is healthy; nothing else grows it
     p.grown = (p.grown || 0) + dt * 1000 * growthSpeed(p);
     // the trickle: Claude working keeps the plant alive at about a fifth of an active click rate
@@ -1490,7 +1633,7 @@ function tick(dt) {
     if (working && s && s.status === 'working' && Date.now() - s.lastSeen < 60 * 1000) {
       let rate = TUNING.trickle * power * yieldMult(p) * meterFactor(p);
       if (!has('greenhouse') && pestsOn(sid)) rate *= 0.5;
-      p.sap += rate * dt; garden.sap += rate * dt; garden.lifetime += rate * dt;
+      p.sap += rate * dt; garden.sap += rate * dt; garden.lifetime += rate * dt; garden.runLifetime = (garden.runLifetime || 0) + rate * dt;
       record('trickle', rate * dt);
     }
   }
@@ -1659,7 +1802,7 @@ function catchAmbient(i, x, y) {
     // petting: hearts every time, sap only for the first pet of a visit
     const c = ambient[i]; c.purr = 1.5;
     for (let k = 0; k < 4; k++) particles.push({ kind: 'spark', text: '', x: x + (Math.random() - 0.5) * 24, y: y - 12, vx: (Math.random() - 0.5) * 40, vy: -30 - Math.random() * 40, age: 0, life: 1.1, size: 3 });
-    if (!c.paid) { c.paid = true; earn(s.id, 8 * clickPower() * yieldMult(plants[s.id]), x, y, '🐈 purr +', 'window', 'bird'); }
+    if (!c.paid) { c.paid = true; garden.petted = (garden.petted || 0) + 1; earn(s.id, 8 * clickPower() * yieldMult(plants[s.id]), x, y, '🐈 purr +', 'window', 'bird'); }
     return;
   }
   const a = ambient.splice(i, 1)[0];
@@ -1952,7 +2095,7 @@ function drawWindows(t) {
       ctx.fillStyle = 'rgba(255,245,200,' + a.toFixed(2) + ')'; ctx.font = 'bold 12px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
       ctx.fillText('×' + sunbeamMult(), r.cx, Math.max(70, ry));
     }
-    if (lastRain[sid] && now - lastRain[sid] < 6000) {
+    if (lastRain[sid] && now - lastRain[sid] < puddleMs()) {
       const a = Math.min(1, (6000 - (now - lastRain[sid])) / 1500) * 0.7;
       ctx.fillStyle = 'rgba(120,180,255,' + (0.35 * a).toFixed(2) + ')';
       ctx.beginPath(); ctx.ellipse(r.cx, r.y - 3, r.w / 2 - 6, 7, 0, 0, Math.PI * 2); ctx.fill();
@@ -2243,6 +2386,7 @@ function celebrateCommand(sid, command) {
   const isGit = /(^|[\s;&|])git\s/.test(cmd);
   if (isGit && /\bpush\b/.test(cmd)) {
     for (let k = 0; k < 3; k++) setTimeout(() => { if (!W) return; ambient.push({ kind: 'rocket', age: 0, life: 1.1 + Math.random() * 0.4, phase: Math.random() * 6, x: r.cx + (Math.random() - 0.5) * 160, y: soilY - 10, vy: 0, hue: Math.floor(Math.random() * 360) }); const a = ambient[ambient.length - 1]; a.vy = -(H * 0.45) / a.life; }, k * 350);
+    garden.fireworks = (garden.fireworks || 0) + 1;
     fly('pushed: fireworks!', '#ffcb5c');
   } else if (isGit && /\bcommit\b/.test(cmd)) {
     for (let k = 0; k < 40; k++) ambient.push({ kind: 'confetti', age: -Math.random() * 0.3, life: 2.6 + Math.random(), phase: Math.random() * 6, x: r.cx + (Math.random() - 0.5) * 40, y: r.y - H * 0.25, vx: (Math.random() - 0.5) * 220, vy: -120 - Math.random() * 160, hue: Math.floor(Math.random() * 360), spin: (Math.random() - 0.5) * 12 });
@@ -3691,14 +3835,14 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       water: 'ether', light: 'starlight', nutrients: 'ley power', sunbeam: 'arcane beam', puddle: 'mana pool', greenhouse: 'observatory',
       crowLanded: 'an imp appeared', crowTitle: 'An imp', birdTitle: 'A passing spirit', birdFloat: '👻 +',
       beeTitle: 'A wisp', beeTip: 'Click it to bind it to the tower for a bonus before it drifts off.', beeVisit: 'a wisp is circling', beeFloat: '✨ bound +',
-      shopTitle: 'Arcane shop', shopTab: 'Grounds',
+      shopTitle: 'Arcane shop', shopTab: 'Grounds', prestige: 'New age',
       mailboxTitle: 'Owl post', mailboxEmpty: 'Scrolls arrive here only when Claude needs an answer from you.', deskTitle: 'Lectern', gateTitle: 'The iron gate', lanternTitle: 'Mana vial of', tend: 'click to channel mana',
       starTitle: 'A falling star', butterflyTitle: 'A sprite', catTitle: 'A cat', snailTitle: 'A slime', ladybugTitle: 'A scarab',
       lanternOut: 'Dark while the context is compacted. The crystal wakes when compaction finishes.', lanternLeft: 'of the mana left before compaction is due.', lanternLow: 'The crystal is flickering. Let auto-compact run or type /compact in the app.',
       stages: ['foundation', 'cellar', 'ground floor', 'first floor', 'second floor', 'lit windows', 'crystal spire', 'floating stones', 'storm ring', 'glowing', 'enchanted', 'colossal', 'ancient', 'mythic'],
     },
     items: {
-      trowel: { name: 'Wand', icon: '🪄' }, can: { name: 'Grimoire', icon: '📖' }, shears: { name: 'Staff', icon: '🔱' }, trellis: { name: 'Crystal ball', icon: '🔮' }, hive: { name: 'Familiar', icon: '🐈‍⬛' },
+      trowel: { name: 'Wand', icon: '🪄' }, can: { name: 'Grimoire', icon: '📖' }, shears: { name: 'Staff', icon: '🔱' }, trellis: { name: 'Crystal ball', icon: '🔮' }, hive: { name: 'Familiar', icon: '🐈‍⬛' }, sprinkler: { name: 'Rune circle', icon: '🔯' }, orchard: { name: 'Dragon', icon: '🐉' },
       longbeam: { name: 'Long beam', desc: 'The arcane beam after Claude writes a file lasts 12, then 16 seconds instead of 8.' },
       brightbeam: { name: 'Bright beam', icon: '✨', desc: 'Clicks inside an arcane beam pay four times instead of three.' },
       puddle: { name: 'Deep mana pool', icon: '🌀', desc: 'Clicks while ether rains on a tower pay double instead of 1.5 times.' },
@@ -4017,14 +4161,14 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       water: 'ice', light: 'starlight', nutrients: 'minerals', sunbeam: 'solar flare', puddle: 'comet dust', greenhouse: 'space station',
       crowLanded: 'a rogue drone arrived', crowTitle: 'A rogue drone', birdTitle: 'A passing comet', birdFloat: '☄ +',
       beeTitle: 'A probe', beeTip: 'Click it to dock the probe for a bonus before it drifts off.', beeVisit: 'a probe is orbiting', beeFloat: '🛰 docked +',
-      shopTitle: 'Orbital supply', shopTab: 'Station',
+      shopTitle: 'Orbital supply', shopTab: 'Station', prestige: 'Big bang',
       stages: ['dust', 'pebbles', 'planetesimal', 'protoplanet', 'rocky world', 'atmosphere', 'oceans', 'life', 'city lights', 'glowing', 'ringed', 'gas giant', 'ancient', 'mythic'],
       mailboxTitle: 'Comms dish', mailboxEmpty: 'Transmissions arrive here only when Claude needs an answer from you.', deskTitle: 'Console', gateTitle: 'The airlock', lanternTitle: 'Reactor of', tend: 'click to gather stardust',
       starTitle: 'A meteor', butterflyTitle: 'A satellite', catTitle: 'A cat', snailTitle: 'A slow rover', ladybugTitle: 'A bug-bot',
       lanternOut: 'Powered down while the context is compacted. It restarts when compaction finishes.', lanternLeft: 'of the fuel left before compaction is due.', lanternLow: 'The core is flickering. Let auto-compact run or type /compact in the app.',
     },
     items: {
-      trowel: { name: 'Scoop', icon: '🥄' }, can: { name: 'Drill', icon: '⛏️' }, shears: { name: 'Mining laser', icon: '🔦' }, trellis: { name: 'Tractor beam', icon: '🧲' }, hive: { name: 'Mining fleet', icon: '🚀' },
+      trowel: { name: 'Scoop', icon: '🥄' }, can: { name: 'Drill', icon: '⛏️' }, shears: { name: 'Mining laser', icon: '🔦' }, trellis: { name: 'Tractor beam', icon: '🧲' }, hive: { name: 'Mining fleet', icon: '🚀' }, sprinkler: { name: 'Asteroid crusher', icon: '☄️' }, orchard: { name: 'Dyson swarm', icon: '🌞' },
       longbeam: { name: 'Long flare', desc: 'The solar flare after Claude writes a file lasts 12, then 16 seconds instead of 8.' },
       brightbeam: { name: 'Bright flare', icon: '🌟', desc: 'Clicks inside a solar flare pay four times instead of three.' },
       puddle: { name: 'Thick comet dust', icon: '☄️', desc: 'Clicks while comet dust falls on a planet pay double instead of 1.5 times.' },
@@ -4338,14 +4482,14 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       water: 'water', light: 'sunshine', nutrients: 'ferns', sunbeam: 'sunbeam', puddle: 'mud bath', greenhouse: 'cave',
       crowLanded: 'a pterosaur swooped in', crowTitle: 'A pterosaur', birdTitle: 'A passing dragonfly', birdFloat: '🪰 +',
       beeTitle: 'A beetle', beeTip: 'Click it to feed it to the dinosaur for a bonus before it scuttles off.', beeVisit: 'a beetle is crawling near', beeFloat: '🪲 fed +',
-      shopTitle: 'Tribe camp', shopTab: 'Camp',
+      shopTitle: 'Tribe camp', shopTab: 'Camp', prestige: 'Extinction event',
       stages: ['egg', 'cracking', 'hatchling', 'juvenile', 'young', 'adult', 'nesting', 'alpha', 'giant', 'glowing', 'enchanted', 'colossal', 'ancient', 'mythic'],
       mailboxTitle: 'Message stone', mailboxEmpty: 'Carved messages arrive here only when Claude needs an answer from you.', deskTitle: 'Carving stone', gateTitle: 'The log gate', lanternTitle: 'Campfire of', tend: 'click to feed',
       starTitle: 'A falling star', butterflyTitle: 'A giant dragonfly', catTitle: 'A cat', snailTitle: 'A snail', ladybugTitle: 'A beetle',
       lanternOut: 'Burnt out while the context is compacted. It is relit when compaction finishes.', lanternLeft: 'of the firewood left before compaction is due.', lanternLow: 'The fire is dying down. Let auto-compact run or type /compact in the app.',
     },
     items: {
-      trowel: { name: 'Stick', icon: '🪵' }, can: { name: 'Stone axe', icon: '🪓' }, shears: { name: 'Spear', icon: '🗡️' }, trellis: { name: 'Hunting net', icon: '🕸️' }, hive: { name: 'Hunting pack', icon: '🐺' },
+      trowel: { name: 'Stick', icon: '🪵' }, can: { name: 'Stone axe', icon: '🪓' }, shears: { name: 'Spear', icon: '🗡️' }, trellis: { name: 'Hunting net', icon: '🕸️' }, hive: { name: 'Hunting pack', icon: '🐺' }, sprinkler: { name: 'Trap pit', icon: '🕳️' }, orchard: { name: 'Herd', icon: '🦕' },
       puddle: { name: 'Deep mud bath', icon: '🟤', desc: 'Clicks while rain soaks a nest pay double instead of 1.5 times.' },
       birdseed: { name: 'Bug trap', icon: '🪤', desc: 'Catching a passing dragonfly pays three times as much.' },
       hold: { desc: 'Hold the button down on a nest and it keeps clicking for you: 3 a second, then 4, 5, and 7, a touch faster than a fast thumb.' },
@@ -4637,14 +4781,14 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       water: 'current', light: 'light', nutrients: 'plankton', sunbeam: 'light shaft', puddle: 'plankton bloom', greenhouse: 'wreck',
       crowLanded: 'a moray eel slid in', crowTitle: 'A moray eel', birdTitle: 'A passing turtle', birdFloat: '🐢 +',
       beeTitle: 'A cleaner shrimp', beeTip: 'Click it to let it clean the reef for a bonus before it darts off.', beeVisit: 'a cleaner shrimp is visiting', beeFloat: '🦐 cleaned +',
-      shopTitle: 'Tide pool market', shopTab: 'Seabed',
+      shopTitle: 'Tide pool market', shopTab: 'Seabed', prestige: 'New tide',
       stages: ['larva', 'polyp', 'coral bud', 'coral head', 'colony', 'anemones', 'fish', 'shoals', 'wreck', 'glowing', 'enchanted', 'colossal', 'ancient', 'mythic'],
       mailboxTitle: 'Diving bell', mailboxEmpty: 'Bottles arrive here only when Claude needs an answer from you.', deskTitle: "Ship's wheel", gateTitle: 'The kelp gate', lanternTitle: 'Air tank of', tend: 'click to gather pearls',
       starTitle: 'A shooting star', butterflyTitle: 'A jellyfish', catTitle: 'A cat', snailTitle: 'A sea snail', ladybugTitle: 'A crab',
       lanternOut: 'Empty while the context is compacted. It is refilled when compaction finishes.', lanternLeft: 'of the air left before compaction is due.', lanternLow: 'The air is running low. Let auto-compact run or type /compact in the app.',
     },
     items: {
-      trowel: { name: 'Net', icon: '🥅' }, can: { name: 'Harpoon', icon: '🔱' }, shears: { name: 'Diving suit', icon: '🤿' }, trellis: { name: 'Trawler', icon: '🚤' }, hive: { name: 'Pearl farm', icon: '🦪' },
+      trowel: { name: 'Net', icon: '🥅' }, can: { name: 'Harpoon', icon: '🔱' }, shears: { name: 'Diving suit', icon: '🤿' }, trellis: { name: 'Trawler', icon: '🚤' }, hive: { name: 'Pearl farm', icon: '🦪' }, sprinkler: { name: 'Dredger', icon: '⚓' }, orchard: { name: 'Pearl fleet', icon: '⛵' },
       longbeam: { name: 'Long light shaft', desc: 'The light shaft after Claude writes a file lasts 12, then 16 seconds instead of 8.' },
       brightbeam: { name: 'Bright light shaft', icon: '🔆', desc: 'Clicks inside a light shaft pay four times instead of three.' },
       puddle: { name: 'Thick bloom', icon: '🦠', desc: 'Clicks during a plankton bloom on a reef pay double instead of 1.5 times.' },
@@ -4939,14 +5083,14 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       water: 'steam', light: 'oil', nutrients: 'coal', sunbeam: 'boiler burst', puddle: 'oil slick', greenhouse: 'workshop',
       crowLanded: 'a rust sprite crept in', crowTitle: 'A rust sprite', birdTitle: 'A passing airship', birdFloat: '🎈 +',
       beeTitle: 'A spark', beeTip: 'Click it to catch the spark for a bonus before it fizzles.', beeVisit: 'a spark is jumping', beeFloat: '⚡ caught +',
-      shopTitle: 'Parts counter', shopTab: 'Factory',
+      shopTitle: 'Parts counter', shopTab: 'Factory', prestige: 'Rebuild',
       stages: ['blueprint', 'frame', 'boiler', 'pistons', 'gears', 'lamps lit', 'chimney', 'bell', 'orrery', 'glowing', 'enchanted', 'colossal', 'ancient', 'mythic'],
       mailboxTitle: 'Pneumatic tube', mailboxEmpty: 'Capsules arrive here only when Claude needs an answer from you.', deskTitle: 'Drafting table', gateTitle: 'The iron door', lanternTitle: 'Pressure gauge of', tend: 'click to turn the crank',
       starTitle: 'A shooting star', butterflyTitle: 'A clockwork moth', catTitle: 'A cat', snailTitle: 'A wind-up snail', ladybugTitle: 'A tin beetle',
       lanternOut: 'No pressure while the context is compacted. It builds again when compaction finishes.', lanternLeft: 'of the pressure left before compaction is due.', lanternLow: 'The needle is in the red. Let auto-compact run or type /compact in the app.',
     },
     items: {
-      trowel: { name: 'Wrench', icon: '🔧' }, can: { name: 'Oil can', icon: '🛢️' }, shears: { name: 'Hammer', icon: '🔨' }, trellis: { name: 'Lathe', icon: '⚙️' }, hive: { name: 'Assembly line', icon: '🏭' },
+      trowel: { name: 'Wrench', icon: '🔧' }, can: { name: 'Oil can', icon: '🛢️' }, shears: { name: 'Hammer', icon: '🔨' }, trellis: { name: 'Lathe', icon: '⚙️' }, hive: { name: 'Assembly line', icon: '🏭' }, sprinkler: { name: 'Steam hammer', icon: '🔩' }, orchard: { name: 'Foundry', icon: '🏗️' },
       longbeam: { name: 'Long burst', desc: 'The boiler burst after Claude writes a file lasts 12, then 16 seconds instead of 8.' },
       brightbeam: { name: 'Bright burst', icon: '💥', desc: 'Clicks inside a boiler burst pay four times instead of three.' },
       puddle: { name: 'Wide oil slick', icon: '🛢️', desc: 'Clicks while oil rains on a machine pay double instead of 1.5 times.' },
@@ -5233,14 +5377,14 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       water: 'flour', light: 'heat', nutrients: 'butter', sunbeam: 'oven glow', puddle: 'spilled cream', greenhouse: 'pantry',
       crowLanded: 'ants got in', crowTitle: 'Ants', birdTitle: 'A passing pigeon', birdFloat: '🐦 +',
       beeTitle: 'A wasp', beeTip: 'Click it to shoo the wasp for a bonus before it lands on the cake.', beeVisit: 'a wasp is circling', beeFloat: '🐝 shooed +',
-      shopTitle: 'Pastry counter', shopTab: 'Kitchen',
+      shopTitle: 'Pastry counter', shopTab: 'Kitchen', prestige: 'New menu',
       stages: ['batter', 'baking', 'sponge', 'one tier', 'two tiers', 'candles', 'frosted', 'three tiers', 'flowers', 'glowing', 'enchanted', 'colossal', 'ancient', 'mythic'],
       mailboxTitle: 'Order box', mailboxEmpty: 'Orders arrive here only when Claude needs an answer from you.', deskTitle: 'Order pad', gateTitle: 'The shop door', lanternTitle: 'Oven of', tend: 'click to stir',
       starTitle: 'A shooting star', butterflyTitle: 'A butterfly', catTitle: 'A cat', snailTitle: 'A snail', ladybugTitle: 'A ladybug',
       lanternOut: 'Cold while the context is compacted. It is relit when compaction finishes.', lanternLeft: 'of the oven fuel left before compaction is due.', lanternLow: 'The oven is cooling. Let auto-compact run or type /compact in the app.',
     },
     items: {
-      trowel: { name: 'Wooden spoon', icon: '🥄' }, can: { name: 'Whisk', icon: '🥣' }, shears: { name: 'Rolling pin', icon: '🫓' }, trellis: { name: 'Stand mixer', icon: '🍰' }, hive: { name: 'Second oven', icon: '🔥' },
+      trowel: { name: 'Wooden spoon', icon: '🥄' }, can: { name: 'Whisk', icon: '🥣' }, shears: { name: 'Rolling pin', icon: '🫓' }, trellis: { name: 'Stand mixer', icon: '🍰' }, hive: { name: 'Second oven', icon: '🔥' }, sprinkler: { name: 'Bread machine', icon: '🍞' }, orchard: { name: 'Franchise', icon: '🏪' },
       longbeam: { name: 'Long oven glow', desc: 'The oven glow after Claude writes a file lasts 12, then 16 seconds instead of 8.' },
       brightbeam: { name: 'Bright oven glow', icon: '🔆', desc: 'Clicks inside an oven glow pay four times instead of three.' },
       puddle: { name: 'Extra cream', icon: '🍦', desc: 'Clicks while cream spills on a cake pay double instead of 1.5 times.' },
@@ -5287,7 +5431,7 @@ function applyTheme(id, preview) {
   if (fromUrl) applyTheme(fromUrl, true); else applyTheme(prefs.theme || 'garden');
 }
 
-window.__garden = { critters, particles, plants, garden, ambient, spawnAmbient, deskState, openDesk, sessions: () => sessions, holds: () => pendingHolds, holding: () => holding, letters: () => letters, focused, holdRate, celebrateCommand, hourglass, desk, THEMES, applyTheme, theme: () => theme, hold: (on) => { holding = on && focused() ? { sid: focused().id, x: W / 2, y: H * 0.7, acc: 0 } : null; } };   // debugging handle
+window.__garden = { critters, particles, plants, garden, ambient, spawnAmbient, deskState, openDesk, sessions: () => sessions, holds: () => pendingHolds, holding: () => holding, letters: () => letters, focused, holdRate, celebrateCommand, hourglass, desk, THEMES, applyTheme, theme: () => theme, prestige, legacyGain, renderAlmanac, ACHIEVEMENTS, PERKS, hold: (on) => { holding = on && focused() ? { sid: focused().id, x: W / 2, y: H * 0.7, acc: 0 } : null; } };   // debugging handle
 updateHud();
 requestAnimationFrame(frame);
 })();
