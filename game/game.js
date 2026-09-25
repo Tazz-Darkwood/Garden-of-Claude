@@ -31,6 +31,7 @@ const GARDEN_WORDS = {
   shopTitle: 'Garden shop', shopTab: 'Garden', stages: STAGE_NAMES,
   mailboxTitle: 'Mailbox', mailboxEmpty: 'Letters arrive here only when Claude needs an answer from you.', deskTitle: 'Writing desk', gateTitle: 'The gate', lanternTitle: 'Lantern of', tend: 'click to tend',
   starTitle: 'A shooting star', butterflyTitle: 'A butterfly', catTitle: 'A cat', snailTitle: 'A snail', ladybugTitle: 'A ladybug',
+  lanternOut: 'Out while the context is compacted. It is relit when compaction finishes.', lanternLeft: 'of the light left before compaction is due.', lanternLow: 'It is guttering. Let auto-compact run or type /compact in the app.',
 };
 const THEMES = {};
 let theme = { id: 'garden', name: 'Garden', icon: '🌱', price: 0, blurb: 'The plant in its pot: sap, seeds, water, light, and nutrients. Always yours.', words: GARDEN_WORDS, items: {}, species: {}, draw: {} };
@@ -1397,8 +1398,7 @@ function updateTip() {
   if (lanternSid && sessions[lanternSid]) {
     const l = lanterns[lanternSid];
     head = W_('lanternTitle') + ' ' + sessionLabel(sessions[lanternSid]);
-    body = l.night ? 'Out while the context is compacted. It is relit when compaction finishes.'
-      : 'Context ' + l.pct + '% full: ' + Math.round(l.left * 100) + '% of the light left before compaction is due.' + (l.left < 0.25 ? '\nIt is guttering. Let auto-compact run or type /compact in the app.' : '');
+    body = l.night ? W_('lanternOut') : 'Context ' + l.pct + '% full: ' + Math.round(l.left * 100) + '% ' + W_('lanternLeft') + (l.left < 0.25 ? '\n' + W_('lanternLow') : '');
   } else if (stakeSid && sessions[stakeSid]) {
     const s = sessions[stakeSid];
     const prompt = s.prompt || (plants[stakeSid] && plants[stakeSid].prompt) || '';
@@ -3617,6 +3617,47 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     ctx.restore();
     drawGateVisitor(t);
   }
+  function wizVial(r, s, t) {
+    // a mana vial in an iron stand where the garden keeps its lantern: the liquid
+    // is the context left, a crystal hovers above it and dims as the mana drains
+    if (!s) return;
+    const dl = daylight();
+    const left = s.night ? 0 : Math.max(0, Math.min(1, 1 - contextFraction(s) / compactAt));
+    const k = Math.max(0.8, Math.min(1.3, r.scale || 1));
+    const bx = r.x - 20 * k, by = r.y + r.h;
+    const gw = 22 * k, gh = 44 * k;
+    const gx = bx - gw / 2, gy = by - 5 * k - gh;
+    shadow(bx + 4, by + 2, gw + 14, 3, 0.2);
+    const iron = col([50, 48, 60], dl), ironLight = col([90, 88, 105], dl);
+    ctx.fillStyle = iron; ctx.beginPath(); ctx.roundRect(gx - 5, by - 6 * k, gw + 10, 6 * k, 2); ctx.fill();
+    ctx.fillStyle = 'rgba(210,225,255,' + (0.18 + 0.12 * dl).toFixed(2) + ')'; ctx.beginPath(); ctx.roundRect(gx, gy, gw, gh, [gw / 2, gw / 2, 4, 4]); ctx.fill();
+    const fillH = (gh - 4) * 0.62, liq = fillH * left;
+    const lg = ctx.createLinearGradient(0, gy + gh - 2 - liq, 0, gy + gh - 2);
+    lg.addColorStop(0, 'rgba(150,120,255,0.95)'); lg.addColorStop(1, 'rgba(70,40,180,0.95)');
+    ctx.fillStyle = lg; ctx.beginPath(); ctx.roundRect(gx + 2, gy + gh - 2 - liq, gw - 4, liq, [0, 0, 3, 3]); ctx.fill();
+    if (left > 0) { ctx.fillStyle = 'rgba(220,210,255,0.55)'; ctx.fillRect(gx + 2, gy + gh - 2 - liq, gw - 4, 1.5 * k); for (let i = 0; i < 3; i++) { const ph = (t * 0.5 + i * 0.37) % 1; ctx.fillStyle = 'rgba(230,220,255,' + (0.5 * (1 - ph)).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(gx + 5 + i * 5 * k, gy + gh - 3 - ph * liq, 1.2 * k, 0, Math.PI * 2); ctx.fill(); } }
+    const lineY = gy + gh - 2 - fillH;
+    ctx.strokeStyle = 'rgba(200,210,255,0.8)'; ctx.lineWidth = 1.2 * k; ctx.beginPath(); ctx.moveTo(gx + 2, lineY); ctx.lineTo(gx + gw - 2, lineY); ctx.stroke();
+    ctx.lineWidth = 1; for (const q of [0.75, 0.5, 0.25]) { const ty = gy + gh - 2 - fillH * q; ctx.beginPath(); ctx.moveTo(gx + 2, ty); ctx.lineTo(gx + 2 + 4 * k, ty); ctx.stroke(); }
+    ctx.fillStyle = 'rgba(200,210,255,0.85)'; ctx.font = (7 * k).toFixed(1) + 'px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'right'; ctx.textBaseline = 'bottom'; ctx.fillText('max', gx + gw - 3, lineY - 1);
+    // stand
+    ctx.strokeStyle = ironLight; ctx.lineWidth = 1.4 * k; ctx.beginPath(); ctx.roundRect(gx, gy, gw, gh, [gw / 2, gw / 2, 4, 4]); ctx.stroke();
+    ctx.strokeStyle = iron; ctx.lineWidth = 2 * k; ctx.beginPath(); ctx.moveTo(gx - 3, by - 6 * k); ctx.lineTo(gx - 3, gy + gh * 0.5); ctx.moveTo(gx + gw + 3, by - 6 * k); ctx.lineTo(gx + gw + 3, gy + gh * 0.5); ctx.stroke();
+    ctx.beginPath(); ctx.ellipse(bx, gy + gh * 0.5, gw / 2 + 3, 3 * k, 0, 0, Math.PI * 2); ctx.stroke();
+    // the crystal
+    const cy = gy - 10 * k + Math.sin(t * 1.5 + r.x) * 2 * k, cr = (4 + 4 * left) * k;
+    if (left > 0) {
+      const low = left < 0.25, flick = low ? 0.5 + 0.5 * Math.abs(Math.sin(t * 17)) : 1;
+      const hue = 265 - 40 * (1 - left);
+      const gl = ctx.createRadialGradient(bx, cy, 1, bx, cy, (30 + 30 * left) * k); gl.addColorStop(0, 'hsla(' + hue + ',90%,75%,' + (0.5 * flick * (0.4 + 0.6 * left)).toFixed(2) + ')'); gl.addColorStop(1, 'hsla(' + hue + ',90%,75%,0)'); ctx.fillStyle = gl; ctx.fillRect(bx - 80, cy - 80, 160, 160);
+      ctx.fillStyle = 'hsla(' + hue + ',85%,' + (55 + 25 * flick * left) + '%,0.95)'; ctx.beginPath(); ctx.moveTo(bx, cy - cr * 1.6); ctx.lineTo(bx + cr, cy); ctx.lineTo(bx, cy + cr * 1.6); ctx.lineTo(bx - cr, cy); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.beginPath(); ctx.moveTo(bx - cr * 0.3, cy - cr * 0.9); ctx.lineTo(bx, cy - cr * 1.3); ctx.lineTo(bx - cr * 0.6, cy - cr * 0.2); ctx.closePath(); ctx.fill();
+    } else {
+      ctx.fillStyle = col([80, 75, 95], dl); ctx.beginPath(); ctx.moveTo(bx, cy - 6 * k); ctx.lineTo(bx + 4 * k, cy); ctx.lineTo(bx, cy + 6 * k); ctx.lineTo(bx - 4 * k, cy); ctx.closePath(); ctx.fill();
+      ctx.strokeStyle = 'rgba(20,16,30,0.7)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(bx - 2 * k, cy - 3 * k); ctx.lineTo(bx + 1 * k, cy + 2 * k); ctx.stroke();
+    }
+    lanterns[s.id] = { x: bx, y: gy + gh / 2, w: gw, h: gh + 12 * k, left, pct: Math.round(100 * contextFraction(s)), night: Boolean(s.night) };
+  }
   THEMES.wizard = {
     id: 'wizard', name: 'Wizard tower', hat: 'wizard', icon: '🔮', price: 10000000, firefly: 'rgba(180,230,255,',
     blurb: 'A tower that gains a floor per stage on a rune-carved plinth. Mana, runes, ether, starlight, and ley power; wands and grimoires in the shop; imps, wisps, an observatory, and apprentices in pointy hats.',
@@ -3627,8 +3668,9 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       crowLanded: 'an imp appeared', crowTitle: 'An imp', birdTitle: 'A passing spirit', birdFloat: '👻 +',
       beeTitle: 'A wisp', beeTip: 'Click it to bind it to the tower for a bonus before it drifts off.', beeVisit: 'a wisp is circling', beeFloat: '✨ bound +',
       shopTitle: 'Arcane shop', shopTab: 'Grounds',
-      mailboxTitle: 'Owl post', mailboxEmpty: 'Scrolls arrive here only when Claude needs an answer from you.', deskTitle: 'Lectern', gateTitle: 'The iron gate', lanternTitle: 'Lantern of', tend: 'click to channel mana',
+      mailboxTitle: 'Owl post', mailboxEmpty: 'Scrolls arrive here only when Claude needs an answer from you.', deskTitle: 'Lectern', gateTitle: 'The iron gate', lanternTitle: 'Mana vial of', tend: 'click to channel mana',
       starTitle: 'A falling star', butterflyTitle: 'A sprite', catTitle: 'A cat', snailTitle: 'A slime', ladybugTitle: 'A scarab',
+      lanternOut: 'Dark while the context is compacted. The crystal wakes when compaction finishes.', lanternLeft: 'of the mana left before compaction is due.', lanternLow: 'The crystal is flickering. Let auto-compact run or type /compact in the app.',
       stages: ['foundation', 'cellar', 'ground floor', 'first floor', 'second floor', 'lit windows', 'crystal spire', 'floating stones', 'storm ring', 'glowing', 'enchanted', 'colossal', 'ancient', 'mythic'],
     },
     items: {
@@ -3658,7 +3700,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
       DAY: [[0.00, [60, 30, 90], [230, 150, 140]], [0.12, [70, 60, 150], [180, 160, 220]], [0.60, [80, 90, 180], [190, 185, 235]], [0.80, [90, 60, 150], [240, 170, 150]], [0.92, [50, 25, 90], [200, 90, 110]], [1.00, [22, 12, 50], [100, 50, 100]]],
       NIGHT: [[8, 6, 26], [40, 24, 72]],
     },
-    draw: { sky: wizSky, ground: wizGround, planter: wizPlanter, plant: wizTower, greenhouse: wizObservatory, pests: wizImps, critters: wizWisps, upgrades: wizUpgrades, ambient: wizAmbient, mailbox: wizMailbox, desk: wizDesk, gate: wizGate },
+    draw: { sky: wizSky, ground: wizGround, planter: wizPlanter, plant: wizTower, greenhouse: wizObservatory, pests: wizImps, critters: wizWisps, upgrades: wizUpgrades, ambient: wizAmbient, mailbox: wizMailbox, desk: wizDesk, gate: wizGate, lantern: wizVial },
   };
 })();
 

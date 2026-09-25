@@ -165,8 +165,9 @@ per browser), and `?theme=wizard` in the address previews one.
   become an ether cistern, a ley stone, a warding sigil, and an astrolabe;
   the sky has a pale violet sun with a corona by day and two moons at night;
   the mailbox is an owl post with a crystal orb, the desk a lectern with a
-  spellbook and a hovering quill, and the gate an iron gate between rune-lit
-  stone pillars with a stone wall behind it;
+  spellbook and a hovering quill, the gate an iron gate between rune-lit
+  stone pillars with a stone wall behind it, and the lantern a mana vial in
+  an iron stand with a crystal hovering over it;
   the ambient life becomes sprites, scarabs, toads, bats, an airship, a
   dragon, embers, slimes, and an aurora in place of the rainbow. 10M sap.
 
