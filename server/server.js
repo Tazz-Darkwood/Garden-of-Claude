@@ -578,7 +578,7 @@ async function handleHook(req, res) {
     if (queued.has(sid)) {
       const text = queued.get(sid); queued.delete(sid);
       letter.replied = true; letter.reply = text; saveLetters();
-      if (state.sessions[sid]) { state.sessions[sid].prompt = text.slice(0, 400); state.sessions[sid].promptAt = Date.now(); }
+      if (state.sessions[sid]) { const ss = state.sessions[sid]; ss.prompt = text.slice(0, 400); ss.promptAt = Date.now(); ss.status = 'working'; ss.note = ''; ss.lastSeen = Date.now(); }
       broadcast({ type: 'letter', letter, held: false, ...snapshot() });
       send(res, 200, JSON.stringify({ decision: 'block', reason: replyReason(text) }));
       return;
@@ -655,7 +655,7 @@ async function handleReply(req, res) {
     send(res, 409, JSON.stringify({ error: 'Claude is not reachable right now; write in the app' }));
     return;
   }
-  if (state.sessions[sid]) { state.sessions[sid].prompt = text.slice(0, 400); state.sessions[sid].promptAt = Date.now(); }
+  if (state.sessions[sid]) { const ss = state.sessions[sid]; ss.prompt = text.slice(0, 400); ss.promptAt = Date.now(); ss.status = 'working'; ss.note = ''; ss.lastSeen = Date.now(); }
   finishHold(sid, { reply: text });
   send(res, 200, JSON.stringify({ ok: true }));
 }
