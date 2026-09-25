@@ -187,6 +187,26 @@ per browser), and `?theme=wizard` in the address previews one.
   torch, a log gate with a bone fence, a campfire whose wood pile is the
   context, helpers with feathers. 10M sap.
 
+- **Deep reef**: the sky is water, with light shafts by day and glowing
+  plankton at night. A coral head grows into a reef by species, gains
+  anemones, fish, shoals, and a wreck leaning on it. Pearls, shells, current,
+  light, and plankton; nets and harpoons; moray eels, cleaner shrimp, a
+  shipwreck, a diving bell, a ship's wheel, a kelp gate, an air tank, divers,
+  and a whale, a submarine, jellyfish, and crabs passing through. 10M sap.
+- **Clockwork**: a brass machine that assembles itself on a factory floor of
+  turning gears: frame, boiler, pistons, gears, lamps, chimney, bell, and an
+  orrery. Cogs, springs, steam, oil, and coal; wrenches and lathes; rust
+  sprites, sparks, a workshop, a pneumatic tube, a drafting table, an iron
+  door, a pressure gauge whose needle is the context, and wind-up helpers in
+  top hats. 10M sap.
+- **Bakery**: inside the shop, with the street through the window. A cake
+  gains a tier per stage on a cake stand, with candles from five, frosting
+  drips from six, flowers from eight, and a sugar star at mythic. Sugar,
+  recipes, flour, heat, and butter; spoons and whisks; ants, wasps, a pantry,
+  an order box, an order pad, the shop door with OPEN and CLOSED signs for
+  the permission modes, an oven with a thermometer, helpers in chef hats, and
+  balloons, paper planes, and a mouse. 10M sap.
+
 The cat is the same cat in every theme. That is on purpose.
 
 Adding a theme is one object in `game/game.js` (see `THEMES.wizard`).

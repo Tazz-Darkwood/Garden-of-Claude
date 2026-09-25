@@ -4976,6 +4976,300 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
   };
 })();
 
+// ---------- theme: bakery ----------
+// Inside a bakery: a cake that gains a tier per stage on a cake stand, with a
+// window on the street for a sky. Sugar for sap, recipes for seeds, flour,
+// heat, and butter for the meters, ants for crows, wasps for bees.
+(function registerBakery() {
+  const tag = themeShared.tag;
+  function bkSky(t) {
+    // the back wall of the shop, with a window showing the street and the sky
+    const [top, bottom] = skyColors(t);
+    const dl = daylight();
+    ctx.fillStyle = col([246, 226, 214], dl); ctx.fillRect(0, 0, W, H);
+    ctx.fillStyle = col([232, 200, 190], dl); for (let y = 0; y < soilY; y += 26) ctx.fillRect(0, y, W, 2);
+    // the window
+    const wx = W * 0.5 - W * 0.19, wy = H * 0.06, ww = W * 0.38, wh = soilY * 0.62;
+    const g = ctx.createLinearGradient(0, wy, 0, wy + wh); g.addColorStop(0, rgb(top)); g.addColorStop(1, rgb(bottom));
+    ctx.fillStyle = g; ctx.fillRect(wx, wy, ww, wh);
+    if (connected) {
+      const f = dayFraction(), night = isNight();
+      if (night) { ctx.fillStyle = 'rgba(245,240,220,0.95)'; ctx.beginPath(); ctx.arc(wx + ww * 0.75, wy + wh * 0.3, 18, 0, Math.PI * 2); ctx.fill(); for (const s of stars) { if (s.x < 0.3 || s.x > 0.7 || s.y > 0.5) continue; ctx.fillStyle = 'rgba(255,255,255,' + (0.5 + 0.5 * Math.abs(Math.sin(t + s.tw))).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(wx + (s.x - 0.3) / 0.4 * ww, wy + s.y * 2 * wh * 0.6, s.r, 0, Math.PI * 2); ctx.fill(); } }
+      else { const sx = wx + ww * (0.1 + f * 0.8), sy = wy + wh * 0.75 - Math.sin(f * Math.PI) * wh * 0.6, r = 16 + weather.sun * 8; const glow = ctx.createRadialGradient(sx, sy, r * 0.4, sx, sy, r * 3); glow.addColorStop(0, 'rgba(255,240,180,0.5)'); glow.addColorStop(1, 'rgba(255,240,180,0)'); ctx.save(); ctx.beginPath(); ctx.rect(wx, wy, ww, wh); ctx.clip(); ctx.fillStyle = glow; ctx.fillRect(sx - r * 3, sy - r * 3, r * 6, r * 6); ctx.fillStyle = '#fff3c0'; ctx.beginPath(); ctx.arc(sx, sy, r, 0, Math.PI * 2); ctx.fill(); ctx.restore(); }
+      // rooftops across the street
+      ctx.fillStyle = col([150, 120, 130], dl * 0.9); for (let i = 0; i < 5; i++) { const bx = wx + i * ww / 5, bh = wh * (0.25 + (i % 3) * 0.1); ctx.fillRect(bx, wy + wh - bh, ww / 5 - 4, bh); ctx.fillStyle = 'rgba(255,230,150,' + (0.5 * (1 - dl) + 0.1).toFixed(2) + ')'; ctx.fillRect(bx + 6, wy + wh - bh + 8, 6, 8); ctx.fillStyle = col([150, 120, 130], dl * 0.9); }
+      if (weather.rain > 0.15) { ctx.strokeStyle = 'rgba(200,220,240,' + (weather.rain * 0.7).toFixed(2) + ')'; ctx.lineWidth = 1; for (let i = 0; i < 20; i++) { const rx = wx + ((i * 0.05 + t * 0.1) % 1) * ww, ry = wy + ((i * 0.13 + t * 0.9) % 1) * wh; ctx.beginPath(); ctx.moveTo(rx, ry); ctx.lineTo(rx - 2, ry + 8); ctx.stroke(); } }
+    }
+    ctx.strokeStyle = col([255, 250, 245], dl); ctx.lineWidth = 8; ctx.strokeRect(wx, wy, ww, wh); ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(wx + ww / 2, wy); ctx.lineTo(wx + ww / 2, wy + wh); ctx.moveTo(wx, wy + wh / 2); ctx.lineTo(wx + ww, wy + wh / 2); ctx.stroke();
+    ctx.fillStyle = col([255, 250, 245], dl); ctx.fillRect(wx - 10, wy + wh, ww + 20, 8);
+    // shelves of loaves and jars either side
+    for (const sx of [W * 0.06, W * 0.86]) { for (let row = 0; row < 3; row++) { const sy = H * 0.12 + row * H * 0.14; ctx.fillStyle = col([170, 120, 80], dl); ctx.fillRect(sx, sy, W * 0.08, 4); for (let i = 0; i < 3; i++) { ctx.fillStyle = row % 2 ? col([220, 160, 90], dl) : col([200, 180, 220], dl, 0.8); ctx.beginPath(); ctx.roundRect(sx + 4 + i * W * 0.026, sy - 12, W * 0.02, 12, [4, 4, 1, 1]); ctx.fill(); } } }
+    // hanging lamps
+    for (let i = 0; i < 3; i++) { const lx = W * (0.3 + i * 0.2), ly = 8 + Math.sin(t * 0.5 + i) * 2; ctx.strokeStyle = col([90, 70, 60], dl); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(lx, 0); ctx.lineTo(lx, ly + 14); ctx.stroke(); ctx.fillStyle = col([220, 190, 150], dl); ctx.beginPath(); ctx.moveTo(lx - 10, ly + 24); ctx.lineTo(lx + 10, ly + 24); ctx.lineTo(lx + 5, ly + 14); ctx.lineTo(lx - 5, ly + 14); ctx.closePath(); ctx.fill(); const lg = ctx.createRadialGradient(lx, ly + 26, 2, lx, ly + 26, 60); lg.addColorStop(0, 'rgba(255,230,170,' + (0.35 * (1 - dl) + 0.08).toFixed(2) + ')'); lg.addColorStop(1, 'rgba(255,230,170,0)'); ctx.fillStyle = lg; ctx.fillRect(lx - 60, ly - 34, 120, 120); }
+  }
+  function bkGround(t) {
+    const dl = daylight();
+    // the counter edge and a chequered floor
+    ctx.fillStyle = col([170, 120, 80], dl); ctx.fillRect(0, soilY - 12, W, 12);
+    ctx.fillStyle = col([200, 150, 100], dl); ctx.fillRect(0, soilY - 14, W, 4);
+    const tile = 34;
+    for (let row = 0; row < Math.ceil((H - soilY) / tile) + 1; row++) {
+      for (let cx = 0; cx < W + tile; cx += tile) {
+        const i = Math.floor(cx / tile) + row;
+        ctx.fillStyle = i % 2 ? col([240, 232, 220], dl) : col([120, 90, 80], dl);
+        const skew = row * 6;
+        ctx.beginPath(); ctx.moveTo(cx - skew, soilY + row * tile); ctx.lineTo(cx + tile - skew, soilY + row * tile); ctx.lineTo(cx + tile - skew - 6, soilY + (row + 1) * tile); ctx.lineTo(cx - skew - 6, soilY + (row + 1) * tile); ctx.closePath(); ctx.fill();
+      }
+    }
+    ctx.fillStyle = 'rgba(255,255,255,0.35)'; for (const pb of pebbles) { ctx.beginPath(); ctx.arc(pb.x * W, soilY + 10 + pb.y * (H - soilY - 20), pb.r, 0, Math.PI * 2); ctx.fill(); }
+  }
+  function bkPlanter(r, s, plant, isFocus) {
+    const { x, w, y, h, cx } = r;
+    const dl = daylight();
+    shadow(cx, y + h + 3, w * 1.05, w * 0.06);
+    // a cake stand
+    ctx.fillStyle = col([220, 220, 230], dl); ctx.fillRect(cx - 5, y + 6, 10, h - 10); ctx.beginPath(); ctx.ellipse(cx, y + h - 2, w * 0.3, 6, 0, 0, Math.PI * 2); ctx.fill();
+    const plate = ctx.createLinearGradient(x, 0, x + w, 0); plate.addColorStop(0, col(isFocus ? [255, 255, 255] : [245, 245, 250], dl)); plate.addColorStop(1, col([200, 200, 215], dl));
+    ctx.fillStyle = plate; ctx.beginPath(); ctx.ellipse(cx, y, w / 2 + 6, 9, 0, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = col([180, 180, 200], dl); ctx.lineWidth = 1; ctx.stroke();
+    const rings = Math.min(6, (s && s.compactions) || 0);
+    if (rings) { ctx.fillStyle = col([220, 120, 140], dl); for (let i = 0; i < rings; i++) { ctx.beginPath(); ctx.arc(x + 8 + i * 9, y + h - 6, 2.5, 0, Math.PI * 2); ctx.fill(); } }
+    if (plant) { ctx.fillStyle = 'rgba(255,255,255,' + ((plant.water / waterCap()) * 0.5).toFixed(2) + ')'; ctx.beginPath(); ctx.ellipse(cx, y - 1, w / 2 - 6, 5, 0, 0, Math.PI * 2); ctx.fill(); }
+    if (s) tag(r, s, 'rgba(90,50,60,0.92)', '#fff0f4', 'rgba(90,50,60,0.85)', '#ffd6e0');
+  }
+  function bkCake(r, sid, t, plant, wilt) {
+    if (!plant) return;
+    const dl = daylight();
+    const sp = speciesOf(plant), si = plantStage(plant), prog = plantProgress(plant);
+    const k = Math.max(0.6, r.scale) * (si >= 11 ? 1.3 : 1);
+    const cx = r.cx, base = r.y - 6;
+    const shape = sp.shape;
+    const sponge = shape === 'cactus' ? [120, 70, 40] : shape === 'stem' ? [240, 220, 120] : shape === 'spikes' ? [190, 160, 220] : sp.thorns ? [170, 40, 50] : shape === 'moon' ? [200, 170, 110] : [240, 200, 140];
+    const icing = shape === 'fronds' ? [200, 240, 255] : shape === 'moon' ? [235, 225, 210] : shape === 'spikes' ? [225, 200, 245] : sp.thorns ? [250, 240, 240] : shape === 'stem' ? [255, 245, 200] : shape === 'cactus' ? [200, 160, 110] : [255, 220, 230];
+    const rs = seededRandom(hashStr(sid));
+    ctx.save(); ctx.globalAlpha = 1 - wilt * 0.6;
+    if (si === 0) {
+      // batter in a bowl
+      ctx.fillStyle = col([230, 230, 240], dl); ctx.beginPath(); ctx.moveTo(cx - 18 * k, base - 16 * k); ctx.quadraticCurveTo(cx, base + 6 * k, cx + 18 * k, base - 16 * k); ctx.closePath(); ctx.fill();
+      ctx.fillStyle = col(sponge, dl); ctx.beginPath(); ctx.ellipse(cx, base - 15 * k, 16 * k, 4 * k, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = col([160, 120, 80], dl); ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(cx + 4 * k + Math.sin(t * 2) * 4, base - 34 * k); ctx.lineTo(cx - 2 * k, base - 14 * k); ctx.stroke();
+      ctx.restore(); return;
+    }
+    if (si === 1) {
+      // in the tin, rising
+      ctx.fillStyle = col([190, 190, 200], dl); ctx.fillRect(cx - 20 * k, base - 16 * k, 40 * k, 16 * k);
+      ctx.fillStyle = col(sponge, dl); ctx.beginPath(); ctx.ellipse(cx, base - 16 * k, 18 * k, (4 + prog * 8) * k, 0, Math.PI, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = 'rgba(255,255,255,0.4)'; for (let i = 0; i < 3; i++) { const ph = (t * 0.5 + i * 0.33) % 1; ctx.beginPath(); ctx.arc(cx + (i - 1) * 8 * k, base - 24 * k - ph * 20 * k, (2 + ph * 3) * k, 0, Math.PI * 2); ctx.fill(); }
+      ctx.restore(); return;
+    }
+    // tiers: one at two, two at four, three at seven, more with age
+    const tiers = si >= 11 ? 5 : si >= 7 ? 3 : si >= 4 ? 2 : 1;
+    const tierH = 16 * k, cupcakes = shape === 'bonsai';
+    let y = base;
+    for (let i = 0; i < tiers; i++) {
+      const tw = (44 - i * 9) * k;
+      if (cupcakes) {
+        for (let c = -i; c <= i; c += 2) { const px = cx + c * 12 * k * 0.9; ctx.fillStyle = col([200, 160, 120], dl); ctx.beginPath(); ctx.moveTo(px - 7 * k, y - tierH); ctx.lineTo(px + 7 * k, y - tierH); ctx.lineTo(px + 5 * k, y); ctx.lineTo(px - 5 * k, y); ctx.closePath(); ctx.fill(); ctx.fillStyle = col(icing, dl); ctx.beginPath(); ctx.arc(px, y - tierH - 2 * k, 7 * k, Math.PI, 0); ctx.fill(); }
+      } else {
+        ctx.fillStyle = col(sponge, dl); ctx.fillRect(cx - tw, y - tierH, tw * 2, tierH);
+        ctx.fillStyle = col(sponge.map((c) => c * 0.8), dl); ctx.fillRect(cx - tw, y - tierH * 0.45, tw * 2, 2 * k);
+        ctx.fillStyle = col(icing, dl); ctx.beginPath(); ctx.ellipse(cx, y - tierH, tw, 5 * k, 0, 0, Math.PI * 2); ctx.fill();
+        if (si >= 6) { for (let d = 0; d < 5; d++) { const dx = cx - tw + (d + 0.5) * tw * 0.4, dh = (4 + ((d * 7) % 5)) * k; ctx.beginPath(); ctx.roundRect(dx - 2 * k, y - tierH, 4 * k, dh + 4 * k, 2 * k); ctx.fill(); } }
+      }
+      y -= tierH + (cupcakes ? 6 * k : 3 * k);
+    }
+    const topY = y + (cupcakes ? 6 * k : 3 * k);
+    // the tier in progress rises on top
+    if (prog > 0.1 && tiers < 5 && si >= 2) { ctx.fillStyle = col(sponge, dl, 0.6); ctx.fillRect(cx - (44 - tiers * 9) * k, topY - prog * tierH * 0.5, (44 - tiers * 9) * 2 * k, prog * tierH * 0.5); }
+    // candles from five, frosting flowers from eight
+    if (si >= 5) { const n = Math.min(7, si - 2); for (let i = 0; i < n; i++) { const px = cx + (i - (n - 1) / 2) * 9 * k; ctx.fillStyle = ['#ff8fa3', '#7fd0ff', '#ffe07a', '#b8f28a'][i % 4]; ctx.fillRect(px - 1.5 * k, topY - 14 * k, 3 * k, 14 * k); const flick = 1 + Math.sin(t * 11 + i) * 0.2; const lean = shape === 'stem' ? Math.sign(W * 0.08 + dayFraction() * W * 0.84 - cx) * 2 * k : 0; ctx.fillStyle = 'rgba(255,200,90,0.95)'; ctx.beginPath(); ctx.ellipse(px + lean, topY - 18 * k, 2 * k, 4 * k * flick, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'rgba(255,255,220,0.9)'; ctx.beginPath(); ctx.ellipse(px + lean, topY - 17 * k, 0.8 * k, 2 * k * flick, 0, 0, Math.PI * 2); ctx.fill(); } }
+    if (si >= 8 || sp.thorns) { for (let i = 0; i < (si >= 8 ? 6 : 3); i++) { const px = cx + (rs() - 0.5) * 60 * k, py = base - rs() * (tiers * tierH); ctx.fillStyle = sp.thorns ? '#d7263d' : ['#ff8fa3', '#ffb3c6', '#ffd6e0'][i % 3]; for (let p = 0; p < 6; p++) { const a = p * Math.PI / 3 + t * 0.2; ctx.beginPath(); ctx.ellipse(px + Math.cos(a) * 3 * k, py + Math.sin(a) * 3 * k, 2.5 * k, 1.5 * k, a, 0, Math.PI * 2); ctx.fill(); } ctx.fillStyle = '#ffe07a'; ctx.beginPath(); ctx.arc(px, py, 1.5 * k, 0, Math.PI * 2); ctx.fill(); } }
+    if (shape === 'fronds') { const gl = ctx.createRadialGradient(cx, topY, 4, cx, topY, 60 * k); gl.addColorStop(0, 'rgba(180,240,255,' + (0.3 + 0.15 * Math.sin(t * 2)).toFixed(2) + ')'); gl.addColorStop(1, 'rgba(180,240,255,0)'); ctx.fillStyle = gl; ctx.fillRect(cx - 60 * k, topY - 60 * k, 120 * k, 120 * k); }
+    if (shape === 'cactus') { ctx.fillStyle = '#7a1f2b'; for (let i = 0; i < 8; i++) { ctx.beginPath(); ctx.arc(cx + (rs() - 0.5) * 70 * k, base - rs() * tiers * tierH, 2 * k, 0, Math.PI * 2); ctx.fill(); } }
+    if (shape === 'spikes') { ctx.fillStyle = '#8a5cff'; for (let i = 0; i < 6; i++) { ctx.beginPath(); ctx.ellipse(cx + (i - 2.5) * 12 * k, topY - 3 * k, 2 * k, 5 * k, 0, 0, Math.PI * 2); ctx.fill(); } }
+    if (si >= 9) { const gl = ctx.createRadialGradient(cx, base - tiers * tierH / 2, 8, cx, base - tiers * tierH / 2, 110 * k); gl.addColorStop(0, 'rgba(255,220,240,' + (si >= 10 ? 0.28 : 0.16) + ')'); gl.addColorStop(1, 'rgba(255,220,240,0)'); ctx.fillStyle = gl; ctx.fillRect(cx - 110 * k, base - tiers * tierH / 2 - 110 * k, 220 * k, 220 * k); }
+    if (si >= 10) { for (let i = 0; i < 24; i++) { ctx.fillStyle = 'hsl(' + ((i * 37) % 360) + ',90%,65%)'; ctx.save(); ctx.translate(cx + (rs() - 0.5) * 80 * k, base - rs() * tiers * tierH); ctx.rotate(rs() * 3); ctx.fillRect(-2 * k, -0.8 * k, 4 * k, 1.6 * k); ctx.restore(); } }
+    if (si >= 12) { ctx.fillStyle = 'rgba(255,215,90,0.85)'; for (let i = 0; i < 5; i++) { ctx.beginPath(); ctx.arc(cx + (rs() - 0.5) * 70 * k, base - rs() * tiers * tierH, 2.5 * k, 0, Math.PI * 2); ctx.fill(); } }
+    if (si >= 13) { ctx.fillStyle = '#ffe07a'; ctx.beginPath(); ctx.moveTo(cx, topY - 30 * k); for (let i = 1; i < 10; i++) { const a = -Math.PI / 2 + i * Math.PI / 5, rr = i % 2 ? 5 * k : 11 * k; ctx.lineTo(cx + Math.cos(a) * rr, topY - 20 * k + Math.sin(a) * rr); } ctx.closePath(); ctx.fill(); for (let i = 0; i < 3; i++) { const a = t * 0.3 + i * 2.1; ctx.strokeStyle = 'hsla(' + ((t * 40 + i * 120) % 360) + ',90%,80%,0.35)'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(cx, topY - 22 * k); ctx.lineTo(cx + Math.cos(a) * W * 0.4, topY - 22 * k - Math.abs(Math.sin(a)) * H * 0.5 - 40); ctx.stroke(); } }
+    ctx.restore();
+  }
+  function bkPantry(t) {
+    if (!has('greenhouse')) return;
+    const dl = daylight();
+    const w = Math.max(96, Math.min(150, W * 0.11)), h = w * 0.7;
+    const x = W * 0.27 - w / 2, y = soilY - 4;
+    shadow(x + w / 2, y + 3, w * 1.05, 5, 0.15);
+    ctx.fillStyle = col([160, 110, 70], dl); ctx.fillRect(x, y - h, w, h);
+    ctx.fillStyle = col([120, 80, 50], dl); ctx.fillRect(x + 6, y - h + 6, w - 12, h - 12);
+    for (let row = 0; row < 3; row++) { const sy = y - h + 14 + row * (h - 20) / 3; ctx.fillStyle = col([200, 150, 100], dl); ctx.fillRect(x + 8, sy + 14, w - 16, 3); for (let i = 0; i < 4; i++) { ctx.fillStyle = ['#e07a5f', '#f2cc8f', '#81b29a', '#f4f1de'][(i + row) % 4]; ctx.beginPath(); ctx.roundRect(x + 12 + i * (w - 24) / 4, sy, (w - 24) / 4 - 4, 14, 3); ctx.fill(); } }
+  }
+  function bkAnts(t) {
+    for (const p of pests) {
+      const pos = pestPos(p); if (!pos) continue;
+      const x = pos.x, y = pos.y + 10;
+      ctx.fillStyle = '#1c1c24';
+      for (let i = 0; i < 5; i++) { const ax = x - 12 + i * 6 + Math.sin(t * 6 + i) * 1.5, ay = y + Math.sin(t * 9 + i) * 1; ctx.beginPath(); ctx.arc(ax, ay, 1.6, 0, Math.PI * 2); ctx.arc(ax - 2.2, ay, 1.2, 0, Math.PI * 2); ctx.arc(ax + 2, ay - 0.3, 1.1, 0, Math.PI * 2); ctx.fill(); }
+    }
+  }
+  function bkWasps(t) {
+    for (const c of critters) {
+      const fade = Math.min(1, c.age * 3, (c.life - c.age) * 2);
+      ctx.save(); ctx.globalAlpha = fade; ctx.translate(c.x, c.y);
+      ctx.fillStyle = 'rgba(200,220,255,0.6)'; const wing = Math.sin(t * 40) * 0.5; ctx.beginPath(); ctx.ellipse(-2, -4, 5, 2 + wing, -0.5, 0, Math.PI * 2); ctx.ellipse(3, -4, 5, 2 - wing, 0.5, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#ffd45c'; ctx.beginPath(); ctx.ellipse(1, 0, 6, 3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = '#1c1c24'; for (const sx of [-2, 1, 4]) ctx.fillRect(sx, -3, 1.5, 6); ctx.beginPath(); ctx.arc(-6, 0, 2.2, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.moveTo(7, 0); ctx.lineTo(10, -1); ctx.lineTo(7, 1.5); ctx.closePath(); ctx.fill();
+      ctx.restore();
+    }
+  }
+  function bkUpgrades(t) {
+    const dl = daylight();
+    if (has('barrel')) { const x = mailbox.x + mailbox.w + 22, y = soilY; shadow(x + 13, y + 5, 34, 4, 0.2); ctx.fillStyle = col([240, 230, 210], dl); ctx.beginPath(); ctx.roundRect(x, y - 34, 26, 36, 6); ctx.fill(); ctx.fillStyle = col([200, 190, 170], dl); ctx.fillRect(x + 6, y - 38, 14, 6); ctx.fillStyle = '#c94a3a'; ctx.font = '600 8px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('FLOUR', x + 13, y - 18); }
+    const room = gate.x - 8;
+    if (has('compost')) { const x = room - (has('scarecrow') ? 56 : 0) - 40, y = soilY; shadow(x + 12, y + 5, 32, 4, 0.2); ctx.fillStyle = col([150, 110, 70], dl); ctx.beginPath(); ctx.moveTo(x + 2, y); ctx.lineTo(x + 4, y - 28); ctx.lineTo(x + 22, y - 28); ctx.lineTo(x + 24, y); ctx.closePath(); ctx.fill(); ctx.fillStyle = col([120, 85, 55], dl); ctx.fillRect(x + 2, y - 30, 22, 4); ctx.fillStyle = col([200, 190, 170], dl); ctx.fillRect(x + 11, y - 44 + Math.sin(t * 3) * 3, 4, 16); }
+    if (has('scarecrow')) { const x = room - 28, y = soilY - 2; shadow(x, y + 6, 30, 4, 0.2); ctx.fillStyle = col([230, 230, 240], dl); ctx.beginPath(); ctx.roundRect(x - 8, y - 30, 16, 30, 4); ctx.fill(); ctx.fillStyle = col([120, 120, 130], dl); ctx.fillRect(x - 6, y - 34, 12, 5); ctx.fillStyle = '#c94a3a'; ctx.beginPath(); ctx.arc(x, y - 18, 4, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,0.5)'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(x + 8 + i * 4, y - 36 - i * 3 - Math.sin(t * 3 + i) * 2, 1, 0, Math.PI * 2); ctx.fill(); } }
+    if (has('feeder')) { const x = Math.min(W - 30, gate.x + gate.w + 40), y = soilY - 6; shadow(x, y + 8, 40, 4, 0.2); ctx.fillStyle = col([255, 180, 90], dl); ctx.beginPath(); ctx.roundRect(x - 18, y - 22, 36, 22, 3); ctx.fill(); ctx.fillStyle = col([120, 180, 230], dl); ctx.fillRect(x - 14, y - 18, 10, 8); ctx.fillStyle = '#1c1c24'; for (const wx of [-10, 10]) { ctx.beginPath(); ctx.arc(x + wx, y + 2, 4, 0, Math.PI * 2); ctx.fill(); } ctx.fillStyle = '#fff'; ctx.font = '600 7px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('CAKE', x + 5, y - 11); }
+  }
+  function bkAmbient(a, layer, t, fade) {
+    const dl = daylight();
+    if (layer === 'back') {
+      if (a.kind === 'cloud') { ctx.fillStyle = 'rgba(255,255,255,' + (0.35 * fade).toFixed(2) + ')'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(a.x - a.w * 0.1 + i * 10, a.y - i * 8, 8 + i * 2, 0, Math.PI * 2); ctx.fill(); } return true; }
+      if (a.kind === 'rainbow') { for (let i = 0; i < 30; i++) { const ang = Math.PI + (i / 30) * Math.PI, rr = a.r * 0.9 + Math.sin(i * 3) * 8; ctx.fillStyle = 'hsla(' + ((i * 37) % 360) + ',90%,65%,' + (0.7 * fade).toFixed(2) + ')'; ctx.save(); ctx.translate(a.cx + Math.cos(ang) * rr, soilY + 30 + Math.sin(ang) * rr); ctx.rotate(ang); ctx.fillRect(-3, -1.2, 6, 2.4); ctx.restore(); } return true; }
+      if (a.kind === 'flock') { for (let k = 0; k < a.n; k++) { const bx = a.x + Math.abs(k - (a.n - 1) / 2) * 12, by = a.y + (k - (a.n - 1) / 2) * 6, flap = Math.sin(t * 9 + k) * 2; ctx.fillStyle = 'rgba(120,120,140,' + (0.7 * fade).toFixed(2) + ')'; ctx.beginPath(); ctx.ellipse(bx, by, 4, 2.5, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = 'rgba(120,120,140,' + (0.7 * fade).toFixed(2) + ')'; ctx.lineWidth = 1.2; ctx.beginPath(); ctx.moveTo(bx - 4, by - flap); ctx.lineTo(bx, by); ctx.lineTo(bx + 4, by - flap); ctx.stroke(); } return true; }
+      if (a.kind === 'balloon') { ctx.save(); ctx.translate(a.x, a.y); ctx.globalAlpha = fade; for (let i = 0; i < 3; i++) { const bx = (i - 1) * 12, by = -i % 2 * 10; ctx.fillStyle = ['#ff8fa3', '#7fd0ff', '#ffe07a'][i]; ctx.beginPath(); ctx.ellipse(bx, by, 9, 11, 0, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = 'rgba(80,80,90,0.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(bx, by + 11); ctx.lineTo(0, 30); ctx.stroke(); } ctx.restore(); return true; }
+      if (a.kind === 'plane') { const dir = a.vx > 0 ? 1 : -1; ctx.save(); ctx.translate(a.x, a.y); ctx.scale(dir, 1); ctx.rotate(Math.sin(t * 2) * 0.1); ctx.globalAlpha = fade; ctx.fillStyle = 'rgba(250,250,255,0.95)'; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-10, -6); ctx.lineTo(-6, 0); ctx.lineTo(-10, 6); ctx.closePath(); ctx.fill(); ctx.strokeStyle = 'rgba(120,120,140,0.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(12, 0); ctx.lineTo(-6, 0); ctx.stroke(); ctx.restore(); return true; }
+      return false;
+    }
+    if (a.kind === 'kite') { ctx.save(); ctx.globalAlpha = fade; ctx.strokeStyle = 'rgba(120,120,140,0.6)'; ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(a.ax, a.ay); ctx.quadraticCurveTo((a.ax + a.x) / 2 - 20, (a.ay + a.y) / 2 + 30, a.x, a.y); ctx.stroke(); ctx.translate(a.x, a.y); ctx.fillStyle = 'hsl(' + a.hue + ',85%,65%)'; ctx.beginPath(); ctx.ellipse(0, -8, 11, 14, 0, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.beginPath(); ctx.ellipse(-4, -13, 3, 5, -0.4, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = 'hsl(' + a.hue + ',85%,55%)'; ctx.beginPath(); ctx.moveTo(-3, 5); ctx.lineTo(3, 5); ctx.lineTo(0, 8); ctx.closePath(); ctx.fill(); ctx.restore(); return true; }
+    if (a.kind === 'rabbit') { ctx.save(); ctx.translate(a.x, a.y); ctx.globalAlpha = fade; ctx.scale(a.vx > 0 ? 1 : -1, 1); ctx.fillStyle = col([150, 150, 160], dl); ctx.beginPath(); ctx.ellipse(0, -3, 7, 4, 0, 0, Math.PI * 2); ctx.fill(); ctx.beginPath(); ctx.arc(6, -5, 3, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#ffb3c6'; ctx.beginPath(); ctx.arc(5, -8, 1.8, 0, Math.PI * 2); ctx.arc(8, -8, 1.8, 0, Math.PI * 2); ctx.fill(); ctx.strokeStyle = col([150, 150, 160], dl); ctx.lineWidth = 1; ctx.beginPath(); ctx.moveTo(-7, -3); ctx.quadraticCurveTo(-14, -2 + Math.sin(a.age * 6) * 3, -16, -8); ctx.stroke(); ctx.fillStyle = '#1c1c24'; ctx.beginPath(); ctx.arc(7.5, -6, 0.6, 0, Math.PI * 2); ctx.fill(); ctx.restore(); return true; }
+    if (a.kind === 'seed') { ctx.fillStyle = 'rgba(255,255,255,' + (0.7 * fade).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(a.x, a.y, 2.5, 0, Math.PI * 2); ctx.fill(); return true; }
+    return false;
+  }
+  function bkMailbox(t) {
+    const { x, y, w, h, postH } = mailbox;
+    const dl = daylight();
+    const flagUp = unread > 0;
+    shadow(x + w / 2, y + postH + 2, w * 1.3, 4, 0.2);
+    ctx.fillStyle = col([120, 90, 60], dl); ctx.fillRect(x + w / 2 - 3, y, 6, postH);
+    ctx.fillStyle = col([200, 60, 60], dl); ctx.beginPath(); ctx.roundRect(x - 2, y - h, w + 4, h + 4, 5); ctx.fill();
+    ctx.fillStyle = col([160, 40, 40], dl); ctx.fillRect(x + 4, y - h + 10, w - 8, 4);
+    ctx.fillStyle = '#fff'; ctx.font = '600 8px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText('ORDERS', x + w / 2, y - 8);
+    if (flagUp) { const pulse = 0.5 + 0.5 * Math.sin(t * 3); ctx.fillStyle = 'rgba(255,220,120,' + (0.25 + 0.35 * pulse).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(x + w / 2, y - h / 2, w * 0.9, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#f3e6c4'; ctx.beginPath(); ctx.roundRect(x + w / 2 - 9, y - h - 10 + Math.sin(t * 2) * 2, 18, 12, 2); ctx.fill(); }
+    if (unread > 0) { ctx.font = 'bold 11px "Segoe UI", system-ui, sans-serif'; ctx.fillStyle = '#c94a3a'; ctx.beginPath(); ctx.arc(x + w / 2 + 14, y - h - 12, 9, 0, Math.PI * 2); ctx.fill(); ctx.fillStyle = '#fff'; ctx.fillText(String(unread), x + w / 2 + 14, y - h - 12); }
+  }
+  function bkDesk(t) {
+    const st = deskState();
+    const on = st.mode === 'ready', queue = st.mode === 'queue' || st.mode === 'later';
+    const { x, y, w } = desk;
+    const dl = daylight();
+    ctx.fillStyle = col([120, 90, 60], dl); ctx.fillRect(x, y - 30, w, 6); ctx.fillRect(x + 4, y - 24, 5, 26); ctx.fillRect(x + w - 9, y - 24, 5, 26);
+    ctx.fillStyle = on ? '#fffdf2' : queue ? '#e6dfcf' : '#a9a29a'; ctx.beginPath(); ctx.roundRect(x + 8, y - 44, 24, 16, 2); ctx.fill();
+    ctx.strokeStyle = on ? '#6b5a3a' : '#8a8478'; ctx.lineWidth = 1; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(x + 11, y - 40 + i * 4); ctx.lineTo(x + 24 - i * 4, y - 40 + i * 4); ctx.stroke(); }
+    ctx.fillStyle = '#ffd45c'; ctx.save(); ctx.translate(x + 30, y - 46); ctx.rotate(0.6); ctx.fillRect(-1.5, -10, 3, 14); ctx.fillStyle = '#e07a5f'; ctx.fillRect(-1.5, -12, 3, 2); ctx.restore();
+    // a candle in a bun
+    ctx.fillStyle = col([220, 170, 110], dl); ctx.beginPath(); ctx.arc(x + w - 14, y - 30, 8, Math.PI, 0); ctx.fill();
+    ctx.fillStyle = '#efe6d2'; ctx.fillRect(x + w - 16, y - 46, 4, 16);
+    if (on || queue) { const fl = 3 + Math.sin(t * 9) * 0.8; ctx.fillStyle = on ? '#ffcb5c' : '#c9a24d'; ctx.beginPath(); ctx.ellipse(x + w - 14, y - 50, fl * 0.6, fl, 0, 0, Math.PI * 2); ctx.fill(); const g = ctx.createRadialGradient(x + w - 14, y - 50, 2, x + w - 14, y - 50, 40); g.addColorStop(0, 'rgba(255,220,120,' + (on ? 0.5 : 0.2) + ')'); g.addColorStop(1, 'rgba(255,220,120,0)'); ctx.fillStyle = g; ctx.fillRect(x + w - 54, y - 90, 80, 80); }
+    if (queuedNotes[st.s && st.s.id]) { ctx.fillStyle = '#c94a3a'; ctx.beginPath(); ctx.arc(x + 34, y - 48, 5, 0, Math.PI * 2); ctx.fill(); }
+  }
+  function bkGate(t) {
+    const { x, y, w } = gate;
+    const dl = daylight();
+    shadow(x + w / 2, y + 4, w + 40, 5, 0.16);
+    // the shop door in its frame, with a counter running to the edge
+    ctx.fillStyle = col([170, 120, 80], dl); ctx.fillRect(x + w + 4, y - 36, W - x - w - 4, 40);
+    ctx.fillStyle = col([200, 150, 100], dl); ctx.fillRect(x + w + 4, y - 40, W - x - w - 4, 5);
+    ctx.fillStyle = 'rgba(220,240,255,0.5)'; ctx.fillRect(x + w + 10, y - 34, W - x - w - 20, 22);
+    for (let px = x + w + 20; px < W - 20; px += 22) { ctx.fillStyle = ['#e07a5f', '#f2cc8f', '#81b29a', '#ffb3c6'][Math.floor(px / 22) % 4]; ctx.beginPath(); ctx.arc(px, y - 22, 6, Math.PI, 0); ctx.fill(); }
+    ctx.fillStyle = col([120, 80, 50], dl); ctx.fillRect(x - 8, y - 80, 10, 84); ctx.fillRect(x + w - 2, y - 80, 10, 84); ctx.fillRect(x - 8, y - 84, w + 20, 6);
+    const pm = (focused() && focused().permissionMode) || '';
+    const openMode = !pm || pm === 'auto' || pm === 'bypassPermissions';
+    const open = !paused && openMode;
+    ctx.save(); ctx.translate(x + 2, y);
+    if (open) ctx.transform(0.45, -0.15, 0, 1, 0, 0);
+    ctx.fillStyle = col([90, 150, 170], dl); ctx.fillRect(0, -78, w - 4, 78);
+    ctx.fillStyle = 'rgba(220,240,255,0.7)'; ctx.fillRect(6, -70, w - 16, 34);
+    ctx.fillStyle = col([255, 250, 240], dl); ctx.beginPath(); ctx.roundRect((w - 4) / 2 - 20, -58, 40, 14, 3); ctx.fill();
+    ctx.fillStyle = paused ? '#c94a3a' : open ? '#2f7a3a' : pm === 'plan' ? '#8a5cff' : '#c94a3a'; ctx.font = '700 9px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(paused ? 'CLOSED' : open ? 'OPEN' : pm === 'plan' ? 'PLANNING' : 'CLOSED', (w - 4) / 2, -51);
+    ctx.fillStyle = col([220, 190, 90], dl); ctx.beginPath(); ctx.arc(w - 12, -34, 2.5, 0, Math.PI * 2); ctx.fill();
+    ctx.restore();
+    ctx.fillStyle = col([220, 190, 90], dl); ctx.beginPath(); ctx.arc(x + w / 2, y - 88 + (open ? Math.sin(t * 6) * 2 : 0), 4, 0, Math.PI * 2); ctx.fill();
+    drawGateVisitor(t);
+  }
+  function bkOven(r, s, t) {
+    if (!s) return;
+    const dl = daylight();
+    const left = s.night ? 0 : Math.max(0, Math.min(1, 1 - contextFraction(s) / compactAt));
+    const k = Math.max(0.8, Math.min(1.3, r.scale || 1));
+    const bx = r.x - 22 * k, by = r.y + r.h;
+    const ow = 34 * k, oh = 44 * k, ox = bx - ow / 2, oy = by - oh;
+    shadow(bx, by + 2, ow + 10, 3, 0.2);
+    ctx.fillStyle = col([90, 90, 100], dl); ctx.beginPath(); ctx.roundRect(ox, oy, ow, oh, 3); ctx.fill();
+    ctx.fillStyle = col([50, 50, 60], dl); ctx.fillRect(ox + 4 * k, oy + 14 * k, ow - 8 * k, oh - 20 * k);
+    const fillH = oh - 20 * k - 4, lvl = fillH * left;
+    if (left > 0) {
+      const low = left < 0.25, jitter = low ? Math.sin(t * 19) * 2 : Math.sin(t * 5) * 1;
+      const fg = ctx.createLinearGradient(0, oy + oh - 6 * k - lvl, 0, oy + oh - 6 * k); fg.addColorStop(0, 'rgba(255,220,90,0.95)'); fg.addColorStop(1, 'rgba(255,100,40,0.95)');
+      ctx.fillStyle = fg; ctx.beginPath(); ctx.moveTo(ox + 6 * k, oy + oh - 6 * k); ctx.lineTo(ox + ow - 6 * k, oy + oh - 6 * k); for (let i = 4; i >= 0; i--) { ctx.lineTo(ox + 6 * k + (ow - 12 * k) * i / 4, oy + oh - 6 * k - lvl * (i % 2 ? 1 : 0.6) - (i % 2 ? jitter : 0)); } ctx.closePath(); ctx.fill();
+      const gl = ctx.createRadialGradient(bx, oy + oh * 0.6, 4, bx, oy + oh * 0.6, (40 + 40 * left) * k); gl.addColorStop(0, 'rgba(255,170,70,' + (0.1 + 0.3 * (1 - dl)).toFixed(2) + ')'); gl.addColorStop(1, 'rgba(255,170,70,0)'); ctx.fillStyle = gl; ctx.fillRect(bx - 90, oy - 60, 180, 200);
+    } else { ctx.fillStyle = col([80, 70, 70], dl); ctx.beginPath(); ctx.ellipse(bx, oy + oh - 8 * k, ow * 0.3, 3 * k, 0, 0, Math.PI * 2); ctx.fill(); }
+    // the glass door and the thermometer beside it
+    ctx.strokeStyle = col([170, 170, 180], dl); ctx.lineWidth = 2 * k; ctx.strokeRect(ox + 4 * k, oy + 14 * k, ow - 8 * k, oh - 20 * k);
+    ctx.fillStyle = col([170, 170, 180], dl); ctx.fillRect(ox + 8 * k, oy + 6 * k, ow - 16 * k, 3 * k);
+    const tx = ox + ow + 5 * k, ty0 = oy + oh - 6 * k, th = fillH;
+    ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.fillRect(tx - 2 * k, ty0 - th, 4 * k, th);
+    ctx.fillStyle = '#c94a3a'; ctx.fillRect(tx - 1.2 * k, ty0 - lvl, 2.4 * k, lvl); ctx.beginPath(); ctx.arc(tx, ty0 + 2 * k, 3 * k, 0, Math.PI * 2); ctx.fill();
+    ctx.strokeStyle = 'rgba(60,50,40,0.8)'; ctx.lineWidth = 1.2 * k; ctx.beginPath(); ctx.moveTo(tx - 5 * k, ty0 - th); ctx.lineTo(tx + 5 * k, ty0 - th); ctx.stroke();
+    ctx.lineWidth = 1; for (const q of [0.75, 0.5, 0.25]) { const y2 = ty0 - th * q; ctx.beginPath(); ctx.moveTo(tx + 2 * k, y2); ctx.lineTo(tx + 5 * k, y2); ctx.stroke(); }
+    ctx.fillStyle = 'rgba(60,50,40,0.8)'; ctx.font = (6.5 * k).toFixed(1) + 'px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'left'; ctx.textBaseline = 'bottom'; ctx.fillText('max', tx + 6 * k, ty0 - th + 3 * k);
+    lanterns[s.id] = { x: bx + 4 * k, y: oy + oh / 2, w: ow + 14 * k, h: oh + 6 * k, left, pct: Math.round(100 * contextFraction(s)), night: Boolean(s.night) };
+  }
+  THEMES.bakery = {
+    id: 'bakery', name: 'Bakery', hat: 'bakery', icon: '🎂', price: 10000000, firefly: 'rgba(255,240,200,',
+    blurb: 'Inside a bakery: a cake that gains a tier per stage on a cake stand, candles, frosting flowers, and a sugar star at mythic. Sugar, recipes, flour, heat, and butter; spoons and whisks in the shop; ants, wasps, a pantry, an order box, and helpers in chef hats.',
+    words: {
+      title: '🎂 Bakery of Claude', place: 'bakery', sap: 'sugar', seed: 'recipe', seeds: 'recipes', plant: 'cake', plants: 'cakes',
+      harvest: 'Serve', harvested: 'served', nothingToHarvest: 'nothing to serve', sprouted: 'went in the oven',
+      water: 'flour', light: 'heat', nutrients: 'butter', sunbeam: 'oven glow', puddle: 'spilled cream', greenhouse: 'pantry',
+      crowLanded: 'ants got in', crowTitle: 'Ants', birdTitle: 'A passing pigeon', birdFloat: '🐦 +',
+      beeTitle: 'A wasp', beeTip: 'Click it to shoo the wasp for a bonus before it lands on the cake.', beeVisit: 'a wasp is circling', beeFloat: '🐝 shooed +',
+      shopTitle: 'Pastry counter', shopTab: 'Kitchen',
+      stages: ['batter', 'baking', 'sponge', 'one tier', 'two tiers', 'candles', 'frosted', 'three tiers', 'flowers', 'glowing', 'enchanted', 'colossal', 'ancient', 'mythic'],
+      mailboxTitle: 'Order box', mailboxEmpty: 'Orders arrive here only when Claude needs an answer from you.', deskTitle: 'Order pad', gateTitle: 'The shop door', lanternTitle: 'Oven of', tend: 'click to stir',
+      starTitle: 'A shooting star', butterflyTitle: 'A butterfly', catTitle: 'A cat', snailTitle: 'A snail', ladybugTitle: 'A ladybug',
+      lanternOut: 'Cold while the context is compacted. It is relit when compaction finishes.', lanternLeft: 'of the oven fuel left before compaction is due.', lanternLow: 'The oven is cooling. Let auto-compact run or type /compact in the app.',
+    },
+    items: {
+      trowel: { name: 'Wooden spoon', icon: '🥄' }, can: { name: 'Whisk', icon: '🥣' }, shears: { name: 'Rolling pin', icon: '🫓' }, trellis: { name: 'Stand mixer', icon: '🍰' }, hive: { name: 'Second oven', icon: '🔥' },
+      longbeam: { name: 'Long oven glow', desc: 'The oven glow after Claude writes a file lasts 12, then 16 seconds instead of 8.' },
+      brightbeam: { name: 'Bright oven glow', icon: '🔆', desc: 'Clicks inside an oven glow pay four times instead of three.' },
+      puddle: { name: 'Extra cream', icon: '🍦', desc: 'Clicks while cream spills on a cake pay double instead of 1.5 times.' },
+      birdseed: { name: 'Bread crumbs', icon: '🍞', desc: 'Catching a passing pigeon pays three times as much.' },
+      hold: { desc: 'Hold the button down on a cake and it keeps clicking for you: 3 a second, then 4, 5, and 7, a touch faster than a fast thumb.' },
+      barrel: { name: 'Flour sack', icon: '🌾', desc: 'Flour holds 150 and drains a third slower.' },
+      compost: { name: 'Butter churn', icon: '🧈', desc: 'Shell commands give twice the butter.' },
+      feeder: { name: 'Delivery van', icon: '🚚', desc: 'Every tool call feeds flour, heat, and butter twice as much.' },
+      scarecrow: { name: 'Ant powder', icon: '🧂', desc: 'Ants from failed tools leave in 20 seconds instead of 60.' },
+      greenhouse: { name: 'Pantry', icon: '🗄️', desc: 'A pantry at the back of the shop. Heat drains a third slower and ants can no longer slow the trickle.' },
+    },
+    species: {
+      leafy: { name: 'Sponge cake', blurb: 'The everyday cake. Pink icing and candles from the fifth stage.' },
+      sunflower: { name: 'Lemon drizzle', blurb: 'A yellow cake whose candle flames lean toward the sun.' },
+      cactus: { name: 'Fruit cake', blurb: 'Dense and dark, studded with fruit. Flour drains slowly.' },
+      lavender: { name: 'Lavender cake', blurb: 'Purple sponge with sprigs on top.' },
+      rose: { name: 'Red velvet', blurb: 'Red sponge with roses from the first stage up.' },
+      bonsai: { name: 'Cupcake tower', blurb: 'A tier of cupcakes for every stage instead of one big cake.' },
+      crystalfern: { name: 'Sugar-glass cake', blurb: 'Glows like spun sugar. Yields 30% more.' },
+      moonbloom: { name: 'Moon cake', blurb: 'A golden cake that opens to the night.' },
+    },
+    palette: {
+      DAY: [[0.00, [220, 170, 180], [255, 220, 200]], [0.12, [170, 205, 235], [255, 240, 220]], [0.60, [160, 200, 235], [255, 245, 225]], [0.80, [220, 180, 170], [255, 215, 180]], [0.92, [140, 90, 120], [240, 150, 130]], [1.00, [80, 60, 90], [180, 120, 130]]],
+      NIGHT: [[40, 30, 60], [90, 60, 90]],
+    },
+    draw: { sky: bkSky, ground: bkGround, planter: bkPlanter, plant: bkCake, greenhouse: bkPantry, pests: bkAnts, critters: bkWasps, upgrades: bkUpgrades, ambient: bkAmbient, mailbox: bkMailbox, desk: bkDesk, gate: bkGate, lantern: bkOven },
+  };
+})();
+
 // Apply a theme: remember it, retitle the static labels, and redraw the shop.
 function applyTheme(id, preview) {
   if (!THEMES[id] || (!preview && !themeOwned(id))) id = 'garden';
