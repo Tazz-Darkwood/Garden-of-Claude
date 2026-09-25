@@ -262,7 +262,7 @@ button.on { background: var(--alert); color: #1a0d05; font-weight: 700; }
 #almanac-runs th { color: #6b6250; font-weight: 600; }
 
 /* ---------- tour ---------- */
-#tour-open { pointer-events: auto; width: 26px; height: 26px; padding: 0; border-radius: 50%; background: var(--glass); backdrop-filter: blur(6px); color: var(--ink-dim); font-weight: 700; border: 1px solid rgba(255,255,255,0.15); }
+#tour-open { pointer-events: auto; flex: 0 0 26px; width: 26px; min-width: 26px; height: 26px; margin-left: auto; padding: 0; border-radius: 50%; background: var(--glass); backdrop-filter: blur(6px); color: var(--ink-dim); font-weight: 700; border: 1px solid rgba(255,255,255,0.15); }
 #tour-open:hover { color: var(--ink); }
 #tour { position: fixed; inset: 0; z-index: 60; pointer-events: none; }
 #tour.hidden { display: none; }

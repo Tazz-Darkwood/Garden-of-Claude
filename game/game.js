@@ -5529,7 +5529,7 @@ $('tour-next').addEventListener('click', () => { if (tourStep + 1 < TOUR.length)
 $('tour-skip').addEventListener('click', tourEnd);
 $('tour-open').addEventListener('click', tourStart);
 document.addEventListener('keydown', (e) => { if (tourStep >= 0 && e.key === 'Escape') tourEnd(); });
-if (!GALLERY && !prefs.tourDone) { let waited = 0; const t0 = setInterval(() => { if (prefs.tourDone || tourStep >= 0) { clearInterval(t0); return; } if (W && H && (focused() ? rects[focused().id] : placeholderRect)) { waited += 1; if (waited >= 5) { clearInterval(t0); tourStart(); } } }, 500); }
+if (!GALLERY && !prefs.tourDone && garden.lifetime < 1000) { let waited = 0; const t0 = setInterval(() => { if (prefs.tourDone || tourStep >= 0) { clearInterval(t0); return; } if (W && H && (focused() ? rects[focused().id] : placeholderRect)) { waited += 1; if (waited >= 5) { clearInterval(t0); tourStart(); } } }, 500); }
 
 // Apply a theme: remember it, retitle the static labels, and redraw the shop.
 function applyTheme(id, preview) {
