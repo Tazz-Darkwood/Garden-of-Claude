@@ -361,7 +361,8 @@ function needsAnswer(final) {
   const paras = final.replace(/\r/g, '').split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
   const tail = paras.slice(-2).join('\n');
   if (/\?\s*$/.test(tail) || /\?(\s*\n|\s*$)/.test(tail)) return true;
-  return /\b(let me know|tell me|your call|say which|which (one|ones|of these|of those|would|do|you)|what would you like|do you want|would you (like|rather|prefer)|should i|want me to|say (the word|go)|reply (from|when|with)|pick (one|any|which)|choose|and i'll (build|do|make|take|start))\b/i.test(tail);
+  // Requests for a decision that end without a question mark.
+  return /\b(let me know|tell me|your call|say (so|which|the word|go|yes|when)|if (that|this|it) (sounds?|looks?|works?|is) (right|good|ok|okay|fine)|sounds? (right|good|ok|okay) to you|which (one|ones|of these|of those|would|do|you)|what would you like|do you want|would you (like|rather|prefer)|should i|shall i|want (me|it) to|reply (from|when|with)|pick (one|any|which)|choose|give (me|the) (go|nod|word)|confirm|and i'll (build|do|make|take|start|set up|get|go|begin|write|add|run|put|wire|fix))\b/i.test(tail);
 }
 
 async function buildLetter(payload) {
