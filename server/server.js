@@ -456,6 +456,19 @@ function touchSession(ev) {
   const s = state.sessions[id] || (state.sessions[id] = { id, cwd: ev.cwd || '', status: 'idle', firstSeen: Date.now(), note: '' });
   if (ev.cwd) s.cwd = ev.cwd;
   if (ev.permission_mode) s.permissionMode = ev.permission_mode;
+  // Stop and SubagentStop carry the authoritative list of background work.
+  if (Array.isArray(ev.background_tasks)) {
+    const jobs = {}, agents = {};
+    for (const b of ev.background_tasks) {
+      if (!b || b.status !== 'running') continue;
+      const prev = (s.jobs && s.jobs[b.id]) || (s.agents && s.agents[b.id]);
+      if (b.type === 'subagent') agents[b.id] = { type: b.agent_type || '', since: (prev && prev.since) || Date.now(), description: (b.description || '').slice(0, 90) };
+      else jobs[b.id] = { type: b.type || 'shell', description: String(b.description || b.command || '').replace(/\s+/g, ' ').slice(0, 90), since: (prev && prev.since) || Date.now() };
+    }
+    s.jobs = jobs;
+    if (ev.hook_event_name === 'Stop') s.agents = agents; else for (const [id, a] of Object.entries(agents)) if (!(s.agents && s.agents[id])) (s.agents = s.agents || {})[id] = a;
+  }
+  if (s.jobs) for (const [id, j] of Object.entries(s.jobs)) if (Date.now() - j.since > 3 * 3600 * 1000) delete s.jobs[id];
   if (ev.session_title) s.title = String(ev.session_title).slice(0, 80);
   s.lastSeen = Date.now();
   s.lastEvent = ev.hook_event_name;
@@ -478,7 +491,15 @@ function touchSession(ev) {
       break;
     case 'PostToolUse':
     case 'PostToolUseFailure':
-      s.status = 'working'; s.note = ''; s.pendingTool = null; break;
+      s.status = 'working'; s.note = ''; s.pendingTool = null;
+      if (ev.hook_event_name === 'PostToolUse' && /^(Bash|PowerShell)$/.test(ev.tool_name || '') && ev.tool_input && ev.tool_input.run_in_background) {
+        s.jobs = s.jobs || {};
+        const resp = typeof ev.tool_response === 'string' ? ev.tool_response : JSON.stringify(ev.tool_response || '');
+        const m = resp.match(/\b(?:ID|id|Id)[:=]?\s*([A-Za-z0-9_-]{4,})/);
+        const id = (m && m[1]) || ('job' + Date.now().toString(36));
+        s.jobs[id] = { type: 'shell', description: String(ev.tool_input.description || ev.tool_input.command || '').replace(/\s+/g, ' ').slice(0, 90), since: Date.now() };
+      }
+      break;
     case 'SubagentStart':
     case 'SubagentStop':
       s.agents = s.agents || {};

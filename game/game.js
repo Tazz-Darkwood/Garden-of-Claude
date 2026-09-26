@@ -768,6 +768,7 @@ function ingest(ev, quiet) {
     if (!quiet && (c.kind === 'cloud' || c.kind === 'bird')) fly((c.kind === 'cloud' ? 'helper: ' : '') + c.text, TAG_COLORS[c.kind === 'cloud' ? 'agent' : 'web']);
   } else if (name === 'PostToolUse') {
     if (!quiet && sid && /^(Bash|PowerShell)$/.test(ev.tool_name || '')) celebrateCommand(sid, (ev.tool_input && ev.tool_input.command) || '');
+    if (!quiet && ev.tool_input && ev.tool_input.run_in_background) fly('background job: ' + oneLine(ev.tool_input.description || ev.tool_input.command || 'shell', 50), '#ffb070');
     const s = ev.summary;
     if (s) {
       pushTicker(who + ' · ' + s.text, s.icon === 'fail' ? 'alert' : '', s.detail);
@@ -1553,7 +1554,11 @@ function updateTip() {
   const stakeSid = hitStake(hover.x, hover.y);
   const gateSession = liveSessions().find((s) => s.status === 'needs_you');
   const lanternSid = hitLantern(hover.x, hover.y);
-  if (lanternSid && sessions[lanternSid]) {
+  if (hitJob(hover.x, hover.y)) {
+    const j = hitJob(hover.x, hover.y);
+    head = 'Background job';
+    body = j.job.description + '\nRunning for ' + Math.max(1, Math.round((Date.now() - j.job.since) / 60000)) + ' min. Claude carries on and picks up the result when it finishes.';
+  } else if (lanternSid && sessions[lanternSid]) {
     const l = lanterns[lanternSid];
     head = W_('lanternTitle') + ' ' + sessionLabel(sessions[lanternSid]);
     body = l.night ? W_('lanternOut') : 'Context ' + l.pct + '% full: ' + Math.round(l.left * 100) + '% ' + W_('lanternLeft') + (l.left < 0.25 ? '\n' + W_('lanternLow') : '');
@@ -2446,6 +2451,44 @@ function drawGardeners(r, s, t) {
   });
 }
 
+// Background jobs: a pot on a fire per running shell job, past the gardeners.
+// Machine themes get a pod with a blinking light instead.
+const jobSpots = [];
+function drawJobs(r, s, t) {
+  const jobs = s && s.jobs ? Object.entries(s.jobs) : [];
+  for (let i = jobSpots.length - 1; i >= 0; i--) if (jobSpots[i].sid === (s && s.id)) jobSpots.splice(i, 1);
+  if (!jobs.length) return;
+  const dl = daylight();
+  const nAgents = s.agents ? Math.min(4, Object.keys(s.agents).length) : 0;
+  jobs.slice(0, 4).forEach(([id, job], i) => {
+    const jx = r.x + r.w + 22 + nAgents * 26 + 8 + i * 34, jy = r.y + r.h;
+    jobSpots.push({ sid: s.id, id, x: jx, y: jy - 22, w: 30, h: 44, job });
+    shadow(jx, jy + 2, 30, 3, 0.2);
+    ctx.save(); ctx.translate(jx, jy);
+    if (theme.jobStyle === 'pod') {
+      ctx.fillStyle = col([170, 176, 190], dl); ctx.beginPath(); ctx.roundRect(-9, -30, 18, 30, [9, 9, 3, 3]); ctx.fill();
+      ctx.fillStyle = 'rgba(20,30,50,0.85)'; ctx.fillRect(-6, -22, 12, 12);
+      for (let k = 0; k < 3; k++) { ctx.fillStyle = 'rgba(120,255,160,' + (0.3 + 0.7 * Math.max(0, Math.sin(t * 3 + k * 1.2 + i))).toFixed(2) + ')'; ctx.fillRect(-4 + k * 3.5, -18 + (k % 2) * 4, 2.5, 2.5); }
+      ctx.fillStyle = 'rgba(255,120,120,' + (0.5 + 0.5 * Math.sin(t * 6)).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(0, -34, 2, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = col([120, 126, 140], dl); ctx.fillRect(-11, -2, 22, 3);
+    } else {
+      // tripod, pot, fire, and what is cooking
+      ctx.strokeStyle = col([70, 60, 55], dl); ctx.lineWidth = 2; ctx.lineCap = 'round';
+      for (const sx of [-9, 0, 9]) { ctx.beginPath(); ctx.moveTo(sx, 0); ctx.lineTo(sx * 0.2, -34); ctx.stroke(); }
+      const brew = theme.jobBrew || [140, 100, 70];
+      const fl = 1 + Math.sin(t * 12 + i) * 0.15;
+      for (const [c, sc] of [['rgba(255,120,40,0.9)', 1], ['rgba(255,200,80,0.9)', 0.6], ['rgba(255,255,200,0.9)', 0.3]]) { ctx.fillStyle = c; ctx.beginPath(); ctx.moveTo(-6 * sc, -2); ctx.quadraticCurveTo(-5 * sc + Math.sin(t * 9 + i) * 2, -8 * fl * sc, Math.sin(t * 7) * 1.5 * sc, -12 * fl * sc); ctx.quadraticCurveTo(5 * sc + Math.sin(t * 9 + i) * 2, -8 * fl * sc, 6 * sc, -2); ctx.closePath(); ctx.fill(); }
+      ctx.fillStyle = col([50, 46, 50], dl); ctx.beginPath(); ctx.ellipse(0, -18, 11, 8, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.fillStyle = col(brew, dl); ctx.beginPath(); ctx.ellipse(0, -24, 9, 3, 0, 0, Math.PI * 2); ctx.fill();
+      ctx.strokeStyle = col([80, 76, 80], dl); ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, -24, 11, Math.PI * 1.1, Math.PI * 1.9); ctx.stroke();
+      for (let k = 0; k < 3; k++) { const ph = (t * 0.5 + k * 0.33 + i * 0.1) % 1; ctx.fillStyle = 'rgba(255,255,255,' + (0.45 * (1 - ph)).toFixed(2) + ')'; ctx.beginPath(); ctx.arc(-4 + k * 4 + Math.sin(ph * 6 + k) * 3, -26 - ph * 22, 1.5 + ph * 2.5, 0, Math.PI * 2); ctx.fill(); }
+    }
+    ctx.restore();
+    ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = '9px "Segoe UI", system-ui, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'top'; ctx.fillText(oneLine(job.description, 14), jx, jy + 5);
+  });
+}
+function hitJob(x, y) { for (const j of jobSpots) if (Math.abs(x - j.x) < j.w / 2 + 4 && Math.abs(y - j.y) < j.h / 2 + 4) return j; return null; }
+
 // 6. An hourglass by the desk for the running turn: sand runs while Claude works, flips every five minutes.
 const hourglass = { x: 0, y: 0, w: 22, h: 36 };
 function turnElapsed(s) { if (!s || !(s.status === 'working' || s.status === 'needs_you' || s.status === 'limit')) return 0; const from = s.promptAt || s.firstSeen; return from ? Date.now() - from : 0; }
@@ -3275,6 +3318,7 @@ function draw(t) {
     R_('plant', drawPlant)(r, s.id, t + (s.firstSeen % 1000) / 300, plant, s.status === 'needs_you' ? 0.35 : 0);
     R_('lantern', drawLantern)(r, s, t);
     R_('gardeners', drawGardeners)(r, s, t);
+    R_('jobs', drawJobs)(r, s, t);
   }
   R_('upgrades', drawUpgrades)(t);
   R_('pests', drawPests)(t);
@@ -3874,7 +3918,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     lanterns[s.id] = { x: bx, y: gy + gh / 2, w: gw, h: gh + 12 * k, left, pct: Math.round(100 * contextFraction(s)), night: Boolean(s.night) };
   }
   THEMES.wizard = {
-    id: 'wizard', name: 'Wizard tower', hat: 'wizard',
+    id: 'wizard', name: 'Wizard tower', hat: 'wizard', jobBrew: [90, 200, 120],
     perkNames: { headstart: 'Apprentice wand', deeproots: 'Rune memory', longlight: 'Long enchantment', patientsoil: 'Patient ether', secondwind: 'Mana surge', greenkey: 'Observatory key' },
     achNames: { clicks1k: 'Deft wand', harvests10: 'Ten ascents', clicks100k: 'Archmage' }, icon: '🔮', price: 10000000, firefly: 'rgba(180,230,255,',
     blurb: 'A tower that gains a floor per stage on a rune-carved plinth. Mana, runes, ether, starlight, and ley power; wands and grimoires in the shop; imps, wisps, an observatory, and apprentices in pointy hats.',
@@ -4203,7 +4247,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     lanterns[s.id] = { x: bx, y: gy + gh / 2, w: gw, h: gh + 12 * k, left, pct: Math.round(100 * contextFraction(s)), night: Boolean(s.night) };
   }
   THEMES.space = {
-    id: 'space', name: 'Orbit', hat: 'space',
+    id: 'space', name: 'Orbit', hat: 'space', jobStyle: 'pod',
     perkNames: { headstart: 'Launch kit', deeproots: 'Core memory', longlight: 'Long flare', patientsoil: 'Patient ice', secondwind: 'Second burn', greenkey: 'Station key' },
     achNames: { clicks1k: 'Steady scoop', harvests10: 'Ten collapses', clicks100k: 'Astronaut' }, icon: '🪐', price: 10000000, firefly: 'rgba(120,220,255,',
     blurb: 'A planet that grows from dust to a ringed giant on a launch pad above a cratered moon. Stardust, cores, ice, starlight, and minerals; drills and tractor beams in the shop; drones, probes, a space station, and helpers in helmets.',
@@ -4829,7 +4873,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     lanterns[s.id] = { x: bx, y: gy + gh / 2, w: gw, h: gh + 12 * k, left, pct: Math.round(100 * contextFraction(s)), night: Boolean(s.night) };
   }
   THEMES.reef = {
-    id: 'reef', name: 'Deep reef', hat: 'reef',
+    id: 'reef', name: 'Deep reef', hat: 'reef', jobBrew: [60, 160, 200],
     perkNames: { headstart: 'Diver kit', deeproots: 'Shell memory', longlight: 'Long shaft', patientsoil: 'Patient current', secondwind: 'Second breath', greenkey: 'Wreck key' },
     achNames: { clicks1k: 'Sure net', harvests10: 'Ten dives', clicks100k: 'Old salt' }, icon: '🐚', price: 10000000, firefly: 'rgba(120,240,255,',
     blurb: 'The sky is water. A coral head grows into a reef with anemones, fish, shoals, and a wreck leaning on it. Pearls, shells, current, light, and plankton; nets and harpoons in the shop; moray eels, cleaner shrimp, a shipwreck, a diving bell, and divers.',
@@ -5134,7 +5178,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     lanterns[s.id] = { x: bx, y: gy + 8 * k, w: gr * 2 + 8 * k, h: by - gy + gr, left, pct: Math.round(100 * contextFraction(s)), night: Boolean(s.night) };
   }
   THEMES.clockwork = {
-    id: 'clockwork', name: 'Clockwork', hat: 'clockwork',
+    id: 'clockwork', name: 'Clockwork', hat: 'clockwork', jobStyle: 'pod',
     perkNames: { headstart: 'Starter kit', deeproots: 'Spring memory', longlight: 'Long burst', patientsoil: 'Patient boiler', secondwind: 'Second wind-up', greenkey: 'Workshop key' },
     achNames: { clicks1k: 'Sure wrench', harvests10: 'Ten teardowns', clicks100k: 'Master engineer' }, icon: '⚙️', price: 10000000, firefly: 'rgba(255,220,120,',
     blurb: 'A brass machine that assembles itself: a boiler, pistons, gears, lamps, a chimney, a bell, and an orrery on top. Cogs, springs, steam, oil, and coal; wrenches and lathes in the shop; rust sprites, sparks, a workshop, a pneumatic tube, a pressure gauge, and wind-up helpers.',
@@ -5430,7 +5474,7 @@ if (GALLERY) { for (const id of ['hud', 'panel', 'board', 'attention']) $(id).st
     lanterns[s.id] = { x: bx + 4 * k, y: oy + oh / 2, w: ow + 14 * k, h: oh + 6 * k, left, pct: Math.round(100 * contextFraction(s)), night: Boolean(s.night) };
   }
   THEMES.bakery = {
-    id: 'bakery', name: 'Bakery', hat: 'bakery',
+    id: 'bakery', name: 'Bakery', hat: 'bakery', jobBrew: [230, 190, 120],
     perkNames: { headstart: 'Starter dough', deeproots: 'Recipe memory', longlight: 'Long bake', patientsoil: 'Patient proof', secondwind: 'Second rise', greenkey: 'Pantry key' },
     achNames: { clicks1k: 'Steady spoon', harvests10: 'Ten servings', clicks100k: 'Head baker' }, icon: '🎂', price: 10000000, firefly: 'rgba(255,240,200,',
     blurb: 'Inside a bakery: a cake that gains a tier per stage on a cake stand, candles, frosting flowers, and a sugar star at mythic. Sugar, recipes, flour, heat, and butter; spoons and whisks in the shop; ants, wasps, a pantry, an order box, and helpers in chef hats.',
@@ -5556,7 +5600,7 @@ function applyTheme(id, preview) {
   if (fromUrl) applyTheme(fromUrl, true); else applyTheme(prefs.theme || 'garden');
 }
 
-window.__garden = { critters, particles, plants, garden, ambient, spawnAmbient, deskState, openDesk, sessions: () => sessions, holds: () => pendingHolds, holding: () => holding, letters: () => letters, focused, holdRate, celebrateCommand, hourglass, desk, THEMES, applyTheme, theme: () => theme, gate, mailbox, tourStart, tourShow, prestige, legacyGain, renderAlmanac, ACHIEVEMENTS, PERKS, hold: (on) => { holding = on && focused() ? { sid: focused().id, x: W / 2, y: H * 0.7, acc: 0 } : null; } };   // debugging handle
+window.__garden = { critters, particles, plants, garden, ambient, spawnAmbient, deskState, openDesk, sessions: () => sessions, holds: () => pendingHolds, holding: () => holding, letters: () => letters, focused, holdRate, celebrateCommand, hourglass, desk, THEMES, applyTheme, theme: () => theme, gate, mailbox, tourStart, tourShow, jobSpots, prestige, legacyGain, renderAlmanac, ACHIEVEMENTS, PERKS, hold: (on) => { holding = on && focused() ? { sid: focused().id, x: W / 2, y: H * 0.7, acc: 0 } : null; } };   // debugging handle
 updateHud();
 requestAnimationFrame(frame);
 })();

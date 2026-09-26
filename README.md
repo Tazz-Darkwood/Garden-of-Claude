@@ -217,6 +217,11 @@ Adding a theme is one object in `game/game.js` (see `THEMES.wizard`).
   Claude Code when it has one, otherwise the folder name.
 - **Helper gardeners.** Each running subagent is a small gardener raking
   beside the planter; it leaves when the agent finishes.
+- **Background jobs.** Each shell command Claude left running in the
+  background is a pot on a fire past the gardeners (a pod with a blinking
+  light in the orbit and clockwork themes), with its description underneath
+  and its running time on hover. The list comes from the hooks, which report
+  background work at every Stop.
 - **Celebrations.** A shell command that commits throws confetti over the
   planter, a push sends up fireworks, and a test run that passes opens a
   sunbeam (a failing one lands a crow like any failed tool).
