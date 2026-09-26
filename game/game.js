@@ -864,7 +864,10 @@ function harvest(sid, who, auto) {
 // A session that was working but has sent nothing for this long, with no Stop,
 // is probably stopped by a usage limit or a dialog in the app.
 const QUIET_MS = 3 * 60 * 1000;
-function isStalled(s) { return s.status === 'working' && Date.now() - (s.lastSeen || 0) > QUIET_MS && !(s.pendingTool && s.pendingTool.since && /^(Agent|Task|Workflow)$/.test(s.pendingTool.name)); }
+// Quiet with no tool running is a stall (a usage limit or a dialog); quiet while a
+// tool is still running is just a slow tool, which gets a calmer note.
+function isStalled(s) { return s.status === 'working' && Date.now() - (s.lastSeen || 0) > QUIET_MS && !s.pendingTool; }
+function isSlowTool(s) { return s.status === 'working' && s.pendingTool && s.pendingTool.since && Date.now() - s.pendingTool.since > QUIET_MS && !/^(Agent|Task|Workflow)$/.test(s.pendingTool.name); }
 function computeMode() {
   const now = Date.now();
   const live = liveSessions();
@@ -1002,6 +1005,11 @@ function updateHud() {
     const limit = s && s.status === 'limit';
     $('attention-title').textContent = limit ? 'Waiting for the usage limit to reset' : 'Claude has gone quiet';
     $('attention-note').textContent = s ? sessionLabel(s) + ' · ' + (limit ? (s.note || 'it will continue on its own') : 'no word for ' + Math.round((Date.now() - s.lastSeen) / 60000) + ' min and no turn ended. A usage limit or a dialog in the app may be holding it.') : '';
+  } else if (connected && liveSessions().some(isSlowTool)) {
+    att.className = 'calm'; att.style.pointerEvents = 'none';
+    const s = liveSessions().find(isSlowTool);
+    $('attention-title').textContent = 'A tool call is taking a while';
+    $('attention-note').textContent = sessionLabel(s) + ' · ' + prettyTool(s.pendingTool.name) + ' has run for ' + Math.round((Date.now() - s.pendingTool.since) / 60000) + ' min. A drive scan or a build can do that; check the app if it never returns.';
   } else if (connected && unread > 0 && !(isLetterOpen() && !isToast())) {
     att.className = 'calm'; att.style.pointerEvents = 'auto'; att.style.cursor = 'pointer';
     const l = [...letters].reverse().find((x) => !readIds.has(x.id)) || letters[letters.length - 1];
